@@ -1,0 +1,8 @@
+---
+title: "STA 325 Case Study"
+output: html_document
+---
+
+# My Analysis
+
+This is my first R Markdown file for STA 325.
