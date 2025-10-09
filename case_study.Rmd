@@ -1,5 +1,6 @@
 ---
 title: "STA 325 Case Study"
+authors: "Grady P., Laura C., Abby L., Ava E., & Ella T."
 output: html_document
 ---
 
