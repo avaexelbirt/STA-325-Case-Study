@@ -1,0 +1,242 @@
+author: "Ava Exelbirt"
+This is my work for the prelininary steps (Step 1-8) on the document. 
+
+1. Data loading and initial setup 
+```{r}
+#install.packages("pdp")
+library(tidyverse)
+library(broom)
+library(gridExtra)
+library(pdp)
+library(caret)
+
+head(data_test)
+head(data_train)
+```
+
+
+2. Data Preparation and Transformation
+I cleaned and transformed the raw moments to central moments to summary statistics
+```{r}
+# get the central moments from raw moments
+raw2central <- function(m1, m2, m3, m4) {
+  mu <- m1
+  cm2 <- m2 - mu^2
+  cm3 <- m3 - 3*m2*mu + 2*mu^3
+  cm4 <- m4 - 4*m3*mu + 6*m2*mu^2 - 3*mu^4
+  tibble(mu = mu, cm2 = cm2, cm3 = cm3, cm4 = cm4)
+}
+
+
+# apply to the abovec func to training
+df_train <- data_train |>
+  mutate(
+    R_moment_1 = as.numeric(R_moment_1),
+    R_moment_2 = as.numeric(R_moment_2),
+    R_moment_3 = as.numeric(R_moment_3),
+    R_moment_4 = as.numeric(R_moment_4),
+    Fr = suppressWarnings(as.numeric(Fr)),
+    Re = as.numeric(Re),
+    St = as.numeric(St)
+  ) |>
+  rowwise() |>
+  mutate( #now get the central moments and summary stats
+    .temp = list(raw2central(R_moment_1, R_moment_2, R_moment_3, R_moment_4)),
+    mean = .temp$mu,
+    var = .temp$cm2,
+    sd = sqrt(if_else(.temp$cm2 > 0, .temp$cm2, NA_real_)),
+    skew = if_else(!is.na(.temp$cm2) & .temp$cm2 > 0, .temp$cm3 / (.temp$cm2^(3/2)), NA_real_),
+    kurt = if_else(!is.na(.temp$cm2) & .temp$cm2 > 0, .temp$cm4 / (.temp$cm2^2), NA_real_)
+  ) |>
+  ungroup() |>
+  select(-.temp)
+
+# Basic checks for NA/Inf in mean/var (chat added this when debugged)
+stopifnot(nrow(df_train) > 0)
+
+# for the test set, check types & detect Inf in Fr
+df_test <- data_test |>
+  mutate(
+    Fr = suppressWarnings(as.numeric(Fr)),
+    Re = as.numeric(Re),
+    St = as.numeric(St)
+  )
+```
+
+3. EDA
+```{r}
+summary_stats <- summary(df_train)
+print(summary_stats)
+
+#histograms of responses (raw)
+p1 <- ggplot(df_train, aes(x = mean)) + geom_histogram(bins=30) + ggtitle("Histogram: mean")
+p2 <- ggplot(df_train, aes(x = sd)) + geom_histogram(bins=30) + ggtitle("Histogram: sd")
+p3 <- ggplot(df_train, aes(x = skew)) + geom_histogram(bins=30) + ggtitle("Histogram: skewness")
+p4 <- ggplot(df_train, aes(x = kurt)) + geom_histogram(bins=30) + ggtitle("Histogram: kurtosis")
+grid.arrange(p1,p2,p3,p4, ncol=2)
+
+# plots of inputs vs outputs
+plot_grid_inputs <- list(
+  ggplot(df_train, aes(x=Re, y=mean)) + geom_point() + ggtitle("mean ~ Re"),
+  ggplot(df_train, aes(x=Fr, y=mean)) + geom_point() + ggtitle("mean ~ Fr"),
+  ggplot(df_train, aes(x=St, y=mean)) + geom_point() + ggtitle("mean ~ St"),
+  ggplot(df_train, aes(x=Re, y=sd)) + geom_point() + ggtitle("sd ~ Re"),
+  ggplot(df_train, aes(x=Fr, y=sd)) + geom_point() + ggtitle("sd ~ Fr"),
+  ggplot(df_train, aes(x=St, y=sd)) + geom_point() + ggtitle("sd ~ St"),
+  ggplot(df_train, aes(x=Re, y=skew)) + geom_point() + ggtitle("skew ~ Re"),
+  ggplot(df_train, aes(x=Fr, y=skew)) + geom_point() + ggtitle("skew ~ Fr"),
+  ggplot(df_train, aes(x=St, y=skew)) + geom_point() + ggtitle("skew ~ St"),
+  ggplot(df_train, aes(x=Re, y=kurt)) + geom_point() + ggtitle("kurt ~ Re"),
+  ggplot(df_train, aes(x=Fr, y=kurt)) + geom_point() + ggtitle("kurt ~ Fr"),
+  ggplot(df_train, aes(x=St, y=kurt)) + geom_point() + ggtitle("kurt ~ St")
+)
+plot_grid_inputs
+
+
+
+#when i asked chat to check my above stuff and expand on it, it gave me this so not sure if this is fully correct or not#
+# Many moment-derived responses are highly skewed -> log-transform candidates
+# Inspect positive/zero entries
+df_train %>% summarize(
+  mean_min = min(mean, na.rm=TRUE),
+  sd_min = min(sd, na.rm=TRUE),
+  skew_min = min(skew, na.rm=TRUE)
+) %>% print()
+
+# We'll create transformed responses:
+df_train <- df_train %>%
+  mutate(
+    log_mean = if_else(mean > 0, log(mean), NA_real_),
+    log_sd   = if_else(sd > 0, log(sd), NA_real_),
+    # skew and kurtosis can be negative/positive; use raw skew but consider robust transforms for modeling
+    sign_skew = sign(skew),
+    abs_log_skew = if_else(!is.na(skew) & skew != 0, sign_skew * log(abs(skew)), NA_real_),
+    log_kurt = if_else(kurt > 0, log(kurt), NA_real_)
+  )
+
+```
+
+
+5. Train-Test Split for model validation
+```{r}
+library(tidymodels)
+set.seed(325)
+
+split <- initial_split(df_train, prop = 0.8)
+train_from_split <- training(split)
+test_from_split  <- testing(split)
+
+
+```
+
+6. Baseline linear model 
+```{r}
+
+train_from_split <- train_from_split |>
+  mutate(across(c(Re, Fr, St), ~ ifelse(is.infinite(.x), max(.x[is.finite(.x)], na.rm=TRUE), .x)))
+
+test_from_split <- test_from_split |>
+  mutate(across(c(Re, Fr, St), ~ ifelse(is.infinite(.x), max(.x[is.finite(.x)], na.rm=TRUE), .x)))
+
+f_base <- as.formula("log_mean ~ Re + Fr + St")
+
+lm_base <- lm(f_base, data = train_from_split)
+summary(lm_base)
+
+pred_base <- predict(lm_base, newdata = test_from_split)
+
+rmse_base <- sqrt(mean((test_from_split$log_mean - pred_base)^2, na.rm=TRUE))
+r2_base <- cor(test_from_split$log_mean, pred_base, use="complete.obs")^2
+
+cat("Baseline RMSE (log_mean):", rmse_base, " R^2:", r2_base, "\n")
+
+```
+
+7. Nonlinearity assessment: Add polynomial terms (squared, cubic) # Fit models with polynomial terms # Compare with linear model (AIC, BIC, R²) # Residual plots to check for patterns # Partial dependence plots
+```{r}
+#polynomial models for Re, St and numeric Fr
+f_poly2 <- as.formula("log_mean ~ poly(Re,3, raw=TRUE) + poly(St,3, raw=TRUE)  + poly(Fr,3, raw=TRUE)")
+lm_poly2 <- lm(f_poly2, data = train_from_split)
+summary(lm_poly2)
+
+# look at AIC/BIC and R2 on validation
+models <- list(base = lm_base, poly = lm_poly2)
+model_comp <- tibble(
+  model = names(models),
+  AIC = map_dbl(models, AIC),
+  BIC = map_dbl(models, BIC),
+  adjR2 = map_dbl(models, ~summary(.x)$adj.r.squared)
+)
+print(model_comp)
+
+# validate
+pred_poly <- predict(lm_poly2, newdata = test_from_split)
+rmse_poly <- sqrt(mean((test_from_split$log_mean - pred_poly)^2, na.rm=TRUE))
+r2_poly <- cor(test_from_split$log_mean, pred_poly, use="complete.obs")^2
+cat("Poly RMSE (log_mean):", rmse_poly, " R^2:", r2_poly, "\n")
+
+# Residual plots
+resid_plot_base <- ggplot(lm_base, aes(.fitted, .resid)) + geom_point() + geom_hline(yintercept = 0) + ggtitle("Residuals: baseline")
+resid_plot_poly <- ggplot(lm_poly2, aes(.fitted, .resid)) + geom_point() + geom_hline(yintercept = 0) + ggtitle("Residuals: poly")
+grid.arrange(resid_plot_base, resid_plot_poly, ncol=2)
+
+# Check QQ
+qq_base <- ggplot(lm_base, aes(sample = .resid)) + stat_qq() + stat_qq_line() + ggtitle("QQ: baseline")
+qq_poly <- ggplot(lm_poly2, aes(sample = .resid)) + stat_qq() + stat_qq_line() + ggtitle("QQ: poly")
+grid.arrange(qq_base, qq_poly, ncol=2)
+```
+can see that polynomial one way better
+
+8. Interaction Effects: Test two-way interactions (Re:Fr, Re:St, Fr:St) # Test three-way interactions if appropriate # Fit models with interaction terms # Use ANOVA or model comparison to assess significance # Visualize interaction effects
+```{r}
+f_int_2way <- as.formula("log_mean ~ poly(Re,2,raw=TRUE)*poly(St,2,raw=TRUE)  + poly(Fr,2,raw=TRUE)")
+lm_int_2way <- lm(f_int_2way, data = train_from_split)
+
+#  pairwise interaction models
+f_re_fr <- as.formula("log_mean ~ Re * Fr + St")
+f_re_st <- as.formula("log_mean ~ Re * St + Fr")
+f_fr_st <- as.formula("log_mean ~ Fr * St + Re")
+
+mod_re_fr <- lm(f_re_fr, data = train_from_split)
+mod_re_st <- lm(f_re_st, data = train_from_split)
+mod_fr_st <- lm(f_fr_st, data = train_from_split)
+
+# vcompare models
+anova(mod_re_fr, lm_base)   # Re:Fr
+anova(mod_re_st, lm_base)   # Re:St
+anova(mod_fr_st, lm_base)   # Fr:St
+
+# AIC comparisons
+mods <- list(base = lm_base, re_fr = mod_re_fr, re_st = mod_re_st, fr_st = mod_fr_st, all2way = lm_int_2way)
+tibble(name = names(mods),
+       AIC = map_dbl(mods, AIC),
+       BIC = map_dbl(mods, BIC)) |> arrange(AIC) |> print()
+
+# Visualize an interaction: Re * St effect on predicted log_mean
+new_grid <- expand.grid(
+  Re = seq(min(df_train$Re, na.rm=TRUE), max(df_train$Re, na.rm=TRUE), length.out = 40),
+  St = seq(min(df_train$St, na.rm=TRUE), max(df_train$St, na.rm=TRUE), length.out = 40),
+  Fr = seq(min(df_train$Fr, na.rm=TRUE), max(df_train$Fr, na.rm=TRUE), length.out = 40),
+)
+#NEED HELP DeBUGGING LINE ABOVE BC OF FR. DO WE MAKE FR INF AND NUM?
+
+#predict (doesnt load yet bc need to figure out how to debug above)
+new_grid$pred <- predict(lm_int_2way, newdata = new_grid, se.fit = FALSE)
+ggplot(new_grid, aes(x=Re, y=St, fill=pred)) + geom_tile() + labs(title = "Predicted log_mean (Re x St) -- Fr_inf=0") + scale_fill_viridis_c()
+
+
+
+
+```
+
+Model Selection Summaries
+```{r}
+
+cat("\nModel comparison summary (AIC/BIC/adjR2):\n")
+print(model_comp)
+
+cat("\nValidation RMSE base vs poly:\n")
+cat("Base RMSE:", rmse_base, " Poly RMSE:", rmse_poly, "\n")
+
+```
+All AIC and BIC are pretty similar for linear model and model with interaction. Really only changes a lot with poly model. Should we be concerned it is negative?
