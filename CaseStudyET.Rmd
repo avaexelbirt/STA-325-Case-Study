@@ -1,0 +1,111 @@
+---
+title: "STA 325 Case Study"
+author: "Ella Tillinghast"
+output: html_document
+---
+This is what I came up with for our first steps!
+
+### Load Data + Libraries
+```{r}
+
+library(tidyverse)
+library(tidymodels)
+library(dplyr)
+library(broom)
+library(car)
+library(ggplot2)
+library(MuMIn)
+library(splines)
+library(GGally)
+library(readr)
+library(reshape2)
+library(corrplot)
+
+train <- read_csv("Data/data-train.csv")
+test <- read_csv("Data/data-test.csv")
+
+
+```
+
+
+### Understanding the data
+```{r}
+
+str(train)
+
+summary(train)
+
+colSums(is.na(train))
+
+
+```
+
+
+### Distribution of Moments
+```{r}
+moment_cols <- c("R_moment_1", "R_moment_2", "R_moment_3", "R_moment_4")
+
+for (col in moment_cols) {
+  print(
+    ggplot(train, aes_string(x = col)) +
+      geom_histogram(bins = 30, fill = "#69b3a2", color = "white") +
+      theme_minimal() +
+      labs(title = paste("Distribution of", col))
+  )
+}
+```
+
+### Transformations
+
+```{r}
+ggplot(train, aes(x = log1p(R_moment_1))) + geom_histogram(fill = "#69b3a2") +
+  labs(title = "R_moment_1_logged")
+
+ggplot(train, aes(x = log1p(R_moment_2))) + geom_histogram(fill = "#69b3a2") +
+  labs(title = "R_moment_2_logged")
+
+ggplot(train, aes(x = log1p(R_moment_3))) + geom_histogram(fill = "#69b3a2") +
+  labs(title = "R_moment_3_logged")
+
+ggplot(train, aes(x = log1p(R_moment_4))) + geom_histogram(fill = "#69b3a2") +
+  labs(title = "R_moment_4_logged")
+
+```
+Applying a log helps to stablize data across all moments (clearer/easier to read)
+
+
+### Correlation
+```{r}
+
+num_vars_Re <- train[, c("Re", moment_cols)]
+cor_mat <- cor(num_vars_Re, use = "complete.obs")
+
+corrplot(cor_mat, method = "color", type = "upper", tl.cex = 0.8)
+
+
+num_vars_St <- train[, c("St", moment_cols)]
+cor_mat <- cor(num_vars_St, use = "complete.obs")
+
+corrplot(cor_mat, method = "color", type = "upper", tl.cex = 0.8)
+
+num_vars_Fr <- train[, c("Fr", moment_cols)]
+cor_mat <- cor(num_vars_Fr, use = "complete.obs")
+
+corrplot(cor_mat, method = "color", type = "upper", tl.cex = 0.8)
+```
+
+### Group-Level Patterns (I think I should log the vars)
+```{r}
+
+train %>%
+  group_by(St) %>%
+  summarise(across(all_of(moment_cols), mean, na.rm = TRUE)) %>%
+  melt(id.vars = "St") %>%
+  ggplot(aes(x = St, y = value, fill = variable)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Average Moments by St", x = "St", y = "Mean Moment")
+
+
+```
+
