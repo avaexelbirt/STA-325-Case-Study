@@ -1,0 +1,36 @@
+EDA- Abby
+
+```{r}
+train <- read.csv("Data/data-train.csv")
+test <- read.csv("Data/data-test.csv")
+```
+
+```{r}
+# convert raw moments to central moments
+library(moments)
+
+# raw moments from training data
+m1 <- train$R_moment_1   
+m2 <- train$R_moment_2
+m3 <- train$R_moment_3
+m4 <- train$R_moment_4
+
+# raw moments starting at 0
+raw_mat0 <- cbind(m0 = 1, m1 = m1, m2 = m2, m3 = m3, m4 = m4)
+
+# raw to central
+central_all <- t(apply(raw_mat0, 1, raw2central))
+
+output <- data.frame(
+  mean        = m1, # mean- first raw moment
+  mu2_central = central_all[, 3], # sd 
+  mu3_central = central_all[, 4],
+  mu4_central = central_all[, 5]
+)
+
+output$sd <- sqrt(output$mu2_central) # sd= sqrt(2nd central moment)
+output$skewness <- output$mu3_central / (output$sd^3) # 3rd cm / sd^3
+output$kurtosis <- output$mu4_central / (output$sd^4) #4th cm/ sd^4
+
+central_moments_combined <- cbind(train, output)
+```
