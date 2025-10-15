@@ -98,13 +98,56 @@ corrplot(cor_mat, method = "color", type = "upper", tl.cex = 0.8)
 ```{r}
 
 train %>%
-  group_by(St) %>%
-  summarise(across(all_of(moment_cols), mean, na.rm = TRUE)) %>%
-  melt(id.vars = "St") %>%
-  ggplot(aes(x = St, y = value, fill = variable)) +
-  geom_bar(stat = "identity", position = "dodge") +
+group_by(St) %>%
+summarise(across(all_of(moment_cols),
+list(mean = mean, sd = sd),
+na.rm = TRUE)) %>%
+pivot_longer(-St, names_to = c("Moment", ".value"),
+names_pattern = "(.*)_(mean|sd)") %>%
+ggplot(aes(x = St, y = mean, fill = Moment)) +
+geom_bar(stat = "identity", position = position_dodge()) +
+geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd),
+position = position_dodge(0.9), width = 0.2) +
+theme_minimal() +
+labs(title = "Average Moments by St (with SD error bars)",
+x = "St", y = "Mean Moment")
+
+
+```
+```{r}
+
+## Fix
+m_logr1 <- lm(log1p(R_moment_1) ~ Re + St + Fr, data = train)
+
+
+summary(m_logr1)
+
+par(mfrow = c(2, 2))
+plot(m_logr1)
+par(mfrow = c(1, 1))
+
+
+test <- test %>%
+  mutate(R1_log = log1p(R_moment_1)) %>%
+  drop_na(Re, St, Fr, R1_log)
+
+pred_m_logr1 <- predict(m_logr1, newdata = test)
+
+rmse_logr1 <- sqrt(mean((pred_m_logr1 - test$R1_log)^2))
+r2_logr1 <- cor(pred_m_logr1, test$R1_log)^2
+
+cat("m_logr1 — Test RMSE:", rmse_logr1, "\n")
+cat("m_logr1 — Test R²:", r2_logr1, "\n")
+
+ggplot(test, aes(x = R1_log, y = pred_m_logr1)) +
+  geom_point(alpha = 0.4) +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
   theme_minimal() +
-  labs(title = "Average Moments by St", x = "St", y = "Mean Moment")
+  labs(
+    title = "m_logr1: Predicted vs Actual (Test Set)",
+    x = "Actual log1p(R_moment_1)",
+    y = "Predicted"
+  )
 
 
 ```
