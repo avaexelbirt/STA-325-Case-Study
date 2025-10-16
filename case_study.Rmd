@@ -4,6 +4,5 @@ authors: "Grady P., Laura C., Abby L., Ava E., & Ella T."
 output: html_document
 ---
 
-# My Analysis
+# Loading the packages
 
-This is my first R Markdown file for STA 325.

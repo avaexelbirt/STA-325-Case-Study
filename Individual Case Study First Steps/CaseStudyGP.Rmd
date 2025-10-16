@@ -22,29 +22,31 @@ data <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
 ## Converting to Summary Statistics
 
 ```{r}
-# Getting the central moments
+# raw moments from training data
+m1 <- data$R_moment_1   
+m2 <- data$R_moment_2
+m3 <- data$R_moment_3
+m4 <- data$R_moment_4
 
-set.seed(325)
+# raw moments starting at 0
+raw_mat0 <- cbind(m0 = 1, m1 = m1, m2 = m2, m3 = m3, m4 = m4)
 
-# Adding 1's as the 0th moment 
-data$R_moment_0 <- 1
+# raw to central
+central_all <- t(apply(raw_mat0, 1, raw2central))
 
-# Using raw2central package
-moment_df <- data |>
-  select("R_moment_0", "R_moment_1", "R_moment_2", "R_moment_3", 
-                    "R_moment_4")
-central_moments <- data.frame(raw2central(moment_df))
+output <- data.frame(
+  mean        = m1, # mean- first raw moment
+  mu2_central = central_all[, 3], # sd 
+  mu3_central = central_all[, 4],
+  mu4_central = central_all[, 5]
+)
 
-# Clean up central moments dataframe
-central_moments <- central_moments |>
-  rename(Central_moment_0 = R_moment_0,
-         Mean = R_moment_1,
-         Standard_deviation = R_moment_2,
-         Skewness = R_moment_3,
-         Kurtosis = R_moment_4)
+output$sd <- sqrt(output$mu2_central) # sd= sqrt(2nd central moment)
+output$skewness <- output$mu3_central / (output$sd^3) # 3rd cm / sd^3
+output$kurtosis <- output$mu4_central / (output$sd^4) #4th cm/ sd^4
 
-# Appending the central moments to the training dataframe
-data <- cbind(data, central_moments)
+central_moments_combined <- cbind(train, output)
+
 
 ```
 
@@ -118,7 +120,7 @@ From class, we know that lower hanging clouds have a higher Fr value so we could
 
 -   Given the magnitude of the other values for Fr, I would assume they are being caused by a division by 0 error.
 
--   Froud Number = V / sqrt(gL) so likely g or L is negative where g is acceleration due to gravity and L is characteristic length of the flow.
+-   Froud Number = V / sqrt(gL) so likely g or L is negative where g is acceleration due to gravity and L is characteristic length of the flow. (g is likely 0)
 
 ## Examining Distribution of Central Moments
 
