@@ -11,6 +11,8 @@ Description: This is my original work for the case study EDA section of the anal
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
+# install.packages(moments)
+library(moments)
 
 ## Loading the data
 train <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
@@ -18,3 +20,208 @@ test <- read.csv("/home/guest/STA-325-Case-Study/Data/data-test.csv")
 
 ```
 
+## Converting to Summary Statistics
+
+```{r}
+# Getting the central moments
+
+set.seed(325)
+
+# Adding 1's as the 0th moment 
+train$R_moment_0 <- 1
+
+# Using raw2central package
+moment_df <- train |>
+  select("R_moment_0", "R_moment_1", "R_moment_2", "R_moment_3", 
+                    "R_moment_4")
+central_moments <- data.frame(raw2central(moment_df))
+
+# Clean up central moments dataframe
+central_moments <- central_moments |>
+  rename(Central_moment_0 = R_moment_0,
+         Mean = R_moment_1,
+         Standard_deviation = R_moment_2,
+         Skewness = R_moment_3,
+         Kurtosis = R_moment_4)
+
+# Appending the central moments to the training dataframe
+train <- cbind(train, central_moments)
+
+```
+
+## Distribution of St, Re, Fr
+
+### St: size of particles
+
+```{r}
+# Histogram for the different input variables
+
+ggplot(train, aes(x = St)) +
+  geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
+  labs(title = "Histogram of St", x = "St", y = "Count")
+
+```
+
+```{r}
+# Finding whether there are any outliers
+quartiles_st <- quantile(train$St, probs = c(0.25, 0.5, 0.75))
+IQR_value_st <- (quartiles_st[[3]] - quartiles_st[[1]]) * 1.5
+
+# Outliers would be above or below
+lower_bound_st <- quartiles_st[[1]] - IQR_value_st
+upper_bound_st <- quartiles_st[[3]] + IQR_value_st
+print(lower_bound_st)
+print(upper_bound_st)
+```
+
+Notice: St is right skewed with several outliers above the 2.05 range. It might be worth further exploring transforming this variable.
+
+### Re: intensity of the turbulence within the flow
+
+```{r}
+# Histogram for the different input variables
+
+ggplot(train, aes(x = Re)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Re", x = "Re", y = "Count")
+
+# Finding the unique values of Re
+unique(train$Re)
+table(train$Re)
+```
+
+It is interesting that Re only has 3 possible values: 90, 224, 398. This likely means that there are three main types of clouds so it might be advantageous to try and determine which clouds are which. It appears as though 398 is the least frequent Re value while 224 is the most frequent.
+
+### Fr: degree of gravitation acceleration experienced by the flow
+
+Note: This variable has infinite values
+
+```{r}
+# Histogram for the different input variables
+
+ggplot(train, aes(x = Fr)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Fr", x = "Fr", y = "Count")
+
+# Finding the unique values of Re
+table(train$Fr)
+
+
+```
+
+Similarily to Re above, Fr only has three possible values: 0.052, 0.300, and Inf. The distribution of these variables is fairly even with 0.052 being the most common value and 0.3 being the least common value. We are going to have to determine how we want to handle infinite Fr values.
+
+From class, we know that lower hanging clouds have a higher Fr value so we could assume that those with infinite Fr are likely to be lower hanging.
+
+**QUESTION**: Should 0.3 or Infinity be treated as a higher Fr value for lower hanging clouds?
+
+**QUESTION:** What does an infinite Fr value mean? What is causing them?
+
+-   Given the magnitude of the other values for Fr, I would assume they are being caused by a division by 0 error.
+
+-   Froud Number = V / sqrt(gL) so likely g or L is negative where g is acceleration due to gravity and L is characteristic length of the flow.
+
+## Examining Distribution of Central Moments
+
+### Mean
+
+```{r}
+# Histogram for the central moments
+
+ggplot(train, aes(x = Mean)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Means", x = "Mean", y = "Count")
+
+```
+
+```{r}
+# Finding whether there are any outliers
+quartiles_mean <- quantile(train$Mean, probs = c(0.25, 0.5, 0.75))
+IQR_value_mean <- (quartiles_mean[[3]] - quartiles_mean[[1]]) * 1.5
+
+# Outliers would be above or below
+lower_bound_mean <- quartiles_mean[[1]] - IQR_value_mean
+upper_bound_mean <- quartiles_mean[[3]] + IQR_value_mean
+print(lower_bound_mean)
+print(upper_bound_mean)
+```
+
+It is clear that mean is right skewed with the majority of the mean values less than 0.25. There is an outlier above 1 which is greatly outside of the IQR range and should likely be handled with a log transformation. However, some of the mean values are negative so they can't be log transformed.
+
+Explore a log transformation of the mean – since some values are negative, I am going to add a constant to each of the values so that they are positive and then log-transform them
+
+```{r}
+# Log transforming the mean
+shift <- abs(min(train$Mean)) + 0.1
+train$log_Mean <- log(train$Mean + shift)
+
+# Histogram for the log-transformed meean
+ggplot(train, aes(x = log_Mean)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Log Means", x = "Log Mean", y = "Count")
+
+```
+
+Log transforming made the distribution a little more symmetric, although there still appears to be an outlier.
+
+### Standard Deviation
+
+```{r}
+# Histogram for the central moments
+
+ggplot(train, aes(x = Standard_deviation)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of SD", x = "SD", y = "Count")
+```
+
+It appears as though SD around 0 is most common although none of the standard deviations are repeated. They are distributed fairly evenly to the right and left of 0 with few observations which is a good thing.
+
+Transforming the standard deviation:
+
+```{r}
+
+train$sd_trans <- sign(train$Standard_deviation) * sqrt(abs(train$Standard_deviation))
+
+ggplot(train, aes(x = sd_trans)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of SD Transformed", x = "SD Transformed", y = "Count")
+```
+
+The above transformation which takes the square root and maintains the sign is a bit better in terms of having the distribution closer to 0. However, this may be difficult to justify.
+
+### Skewness
+
+```{r}
+# Histogram for the central moments
+
+ggplot(train, aes(x = Skewness)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Skewness", x = "Skewness", y = "Count")
+```
+
+It is clear that there is one outlier to the left of the graph which is clearly skewing the distribution for skewness.
+
+```{r}
+# Want to remove the outlier and re-plot the distribution
+Skewness <- data.frame(train$Skewness)
+Skewness <- Skewness |>
+  filter(train.Skewness > -1.602621e+160)
+
+ggplot(Skewness, aes(x = train.Skewness)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Skewness", x = "Skewness", y = "Count")
+```
+
+The distribution of skewness is still very weird despite having removed some of the outliers.
+
+### Kurtosis
+
+```{r}
+# Histogram for the central moments
+
+ggplot(train, aes(x = Kurtosis)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Kurtosis", x = "Kurtosis", y = "Count")
+```
+
+We notice that Kurtosis has a similarly weird distribution as Skewness above.
