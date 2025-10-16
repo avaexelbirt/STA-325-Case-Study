@@ -1,0 +1,20 @@
+---
+title: "STA 325 Case Study"
+author: "Grady Purcell"
+output: html_document
+---
+
+Description: This is my original work for the case study EDA section of the analysis (before 10/16 meeting).
+
+```{r}
+## Loading the libraries 
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+## Loading the data
+train <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
+test <- read.csv("/home/guest/STA-325-Case-Study/Data/data-test.csv")
+
+```
+

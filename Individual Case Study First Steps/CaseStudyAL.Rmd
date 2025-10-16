@@ -1,8 +1,8 @@
 EDA- Abby
 
 ```{r}
-train <- read.csv("Data/data-train.csv")
-test <- read.csv("Data/data-test.csv")
+train <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
+test <- read.csv("/home/guest/STA-325-Case-Study/Data/data-test.csv")
 ```
 
 ```{r}

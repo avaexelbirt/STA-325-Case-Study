@@ -21,8 +21,8 @@ library(readr)
 library(reshape2)
 library(corrplot)
 
-train <- read_csv("Data/data-train.csv")
-test <- read_csv("Data/data-test.csv")
+train <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
+test <- read.csv("/home/guest/STA-325-Case-Study/Data/data-test.csv")
 
 
 ```
