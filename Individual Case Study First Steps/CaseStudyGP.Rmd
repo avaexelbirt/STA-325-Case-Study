@@ -15,8 +15,7 @@ library(ggplot2)
 library(moments)
 
 ## Loading the data
-train <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
-test <- read.csv("/home/guest/STA-325-Case-Study/Data/data-test.csv")
+data <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
 
 ```
 
@@ -28,10 +27,10 @@ test <- read.csv("/home/guest/STA-325-Case-Study/Data/data-test.csv")
 set.seed(325)
 
 # Adding 1's as the 0th moment 
-train$R_moment_0 <- 1
+data$R_moment_0 <- 1
 
 # Using raw2central package
-moment_df <- train |>
+moment_df <- data |>
   select("R_moment_0", "R_moment_1", "R_moment_2", "R_moment_3", 
                     "R_moment_4")
 central_moments <- data.frame(raw2central(moment_df))
@@ -45,7 +44,7 @@ central_moments <- central_moments |>
          Kurtosis = R_moment_4)
 
 # Appending the central moments to the training dataframe
-train <- cbind(train, central_moments)
+data <- cbind(data, central_moments)
 
 ```
 
@@ -56,7 +55,7 @@ train <- cbind(train, central_moments)
 ```{r}
 # Histogram for the different input variables
 
-ggplot(train, aes(x = St)) +
+ggplot(data, aes(x = St)) +
   geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
   labs(title = "Histogram of St", x = "St", y = "Count")
 
@@ -64,7 +63,7 @@ ggplot(train, aes(x = St)) +
 
 ```{r}
 # Finding whether there are any outliers
-quartiles_st <- quantile(train$St, probs = c(0.25, 0.5, 0.75))
+quartiles_st <- quantile(data$St, probs = c(0.25, 0.5, 0.75))
 IQR_value_st <- (quartiles_st[[3]] - quartiles_st[[1]]) * 1.5
 
 # Outliers would be above or below
@@ -81,13 +80,13 @@ Notice: St is right skewed with several outliers above the 2.05 range. It might 
 ```{r}
 # Histogram for the different input variables
 
-ggplot(train, aes(x = Re)) +
+ggplot(data, aes(x = Re)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Re", x = "Re", y = "Count")
 
 # Finding the unique values of Re
-unique(train$Re)
-table(train$Re)
+unique(data$Re)
+table(data$Re)
 ```
 
 It is interesting that Re only has 3 possible values: 90, 224, 398. This likely means that there are three main types of clouds so it might be advantageous to try and determine which clouds are which. It appears as though 398 is the least frequent Re value while 224 is the most frequent.
@@ -99,12 +98,12 @@ Note: This variable has infinite values
 ```{r}
 # Histogram for the different input variables
 
-ggplot(train, aes(x = Fr)) +
+ggplot(data, aes(x = Fr)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Fr", x = "Fr", y = "Count")
 
 # Finding the unique values of Re
-table(train$Fr)
+table(data$Fr)
 
 
 ```
@@ -128,7 +127,7 @@ From class, we know that lower hanging clouds have a higher Fr value so we could
 ```{r}
 # Histogram for the central moments
 
-ggplot(train, aes(x = Mean)) +
+ggplot(data, aes(x = Mean)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Means", x = "Mean", y = "Count")
 
@@ -136,7 +135,7 @@ ggplot(train, aes(x = Mean)) +
 
 ```{r}
 # Finding whether there are any outliers
-quartiles_mean <- quantile(train$Mean, probs = c(0.25, 0.5, 0.75))
+quartiles_mean <- quantile(data$Mean, probs = c(0.25, 0.5, 0.75))
 IQR_value_mean <- (quartiles_mean[[3]] - quartiles_mean[[1]]) * 1.5
 
 # Outliers would be above or below
@@ -152,11 +151,11 @@ Explore a log transformation of the mean – since some values are negative, I a
 
 ```{r}
 # Log transforming the mean
-shift <- abs(min(train$Mean)) + 0.1
-train$log_Mean <- log(train$Mean + shift)
+shift <- abs(min(data$Mean)) + 0.1
+train$log_Mean <- log(data$Mean + shift)
 
 # Histogram for the log-transformed meean
-ggplot(train, aes(x = log_Mean)) +
+ggplot(data, aes(x = log_Mean)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Log Means", x = "Log Mean", y = "Count")
 
@@ -169,7 +168,7 @@ Log transforming made the distribution a little more symmetric, although there s
 ```{r}
 # Histogram for the central moments
 
-ggplot(train, aes(x = Standard_deviation)) +
+ggplot(data, aes(x = Standard_deviation)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of SD", x = "SD", y = "Count")
 ```
@@ -180,9 +179,9 @@ Transforming the standard deviation:
 
 ```{r}
 
-train$sd_trans <- sign(train$Standard_deviation) * sqrt(abs(train$Standard_deviation))
+data$sd_trans <- sign(data$Standard_deviation) * sqrt(abs(data$Standard_deviation))
 
-ggplot(train, aes(x = sd_trans)) +
+ggplot(data, aes(x = sd_trans)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of SD Transformed", x = "SD Transformed", y = "Count")
 ```
@@ -194,7 +193,7 @@ The above transformation which takes the square root and maintains the sign is a
 ```{r}
 # Histogram for the central moments
 
-ggplot(train, aes(x = Skewness)) +
+ggplot(data, aes(x = Skewness)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Skewness", x = "Skewness", y = "Count")
 ```
@@ -203,11 +202,11 @@ It is clear that there is one outlier to the left of the graph which is clearly 
 
 ```{r}
 # Want to remove the outlier and re-plot the distribution
-Skewness <- data.frame(train$Skewness)
+Skewness <- data.frame(data$Skewness)
 Skewness <- Skewness |>
-  filter(train.Skewness > -1.602621e+160)
+  filter(data.Skewness > -1.602621e+160)
 
-ggplot(Skewness, aes(x = train.Skewness)) +
+ggplot(Skewness, aes(x = data.Skewness)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Skewness", x = "Skewness", y = "Count")
 ```
@@ -219,9 +218,97 @@ The distribution of skewness is still very weird despite having removed some of 
 ```{r}
 # Histogram for the central moments
 
-ggplot(train, aes(x = Kurtosis)) +
+ggplot(data, aes(x = Kurtosis)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Kurtosis", x = "Kurtosis", y = "Count")
 ```
 
 We notice that Kurtosis has a similarly weird distribution as Skewness above.
+
+## Variable Transformation
+
+For now, assume that the Inf Fr values should be replaced with 0's. (Not sure if this is a fair assumption). We also will need to transform Kurtosis since it has both Infinite and NaN values - for now just replace with 0.
+
+```{r}
+# Replace infinite values with 0
+
+data_new <- data |>
+  mutate(across(
+    where(is.numeric),
+    ~ ifelse(is.infinite(.x) | is.nan(.x), 0, .x)
+  ))
+
+```
+
+For now, I am going to not transform any of the variables because I want to see how the model performs before transformation. I also think it's valuable for us to discuss transformation more as a group before fitting different models.
+
+## Train-Test Split
+
+```{r}
+set.seed(325)
+
+# Getting the appropriate sizes for the dataframe
+sample_size <- floor(0.8 * nrow(data_new))
+
+train_indices <- sample(seq_len(nrow(data_new)), 
+                        size = sample_size)
+
+# Doing the train-test split
+train <- data_new[train_indices, ]
+test  <- data_new[-train_indices, ]
+```
+
+## Baseline Linear Model
+
+### Mean
+
+```{r}
+# Building the baseline linear model
+
+linear_model_mean <- lm(Mean ~ Re + Fr + St, data = data_new)
+summary(linear_model_mean)
+```
+
+The R\^2 value is very low for the model above which indicates a linear model may not be the best fit.
+
+### Standard Deviation
+
+```{r}
+# Building the baseline linear model
+
+linear_model_sd <- lm(Standard_deviation ~ Re + Fr + St, 
+                      data = data_new)
+summary(linear_model_sd)
+```
+
+This R\^2 value is even lower than for mean, so we likely need to fit more complex models.
+
+### Skewness
+
+```{r}
+# Building the baseline linear model
+
+linear_model_skew <- lm(Skewness ~ Re + Fr + St, 
+                      data = data_new)
+summary(linear_model_skew)
+```
+
+The linear model doesn't even work for this model. I am unsure why this is the case but clearly a more flexible model is required.
+
+### Kurtosis
+
+```{r}
+# Building the baseline linear model
+
+linear_model_kurtosis <- lm(Kurtosis ~ Re + Fr + St, 
+                      data = data_new)
+summary(linear_model_kurtosis)
+```
+
+Similar problem above where the model doesn't really work for the kurtosis values.
+
+## Next Steps:
+
+-   Determine how to handle Fr & Kurtosis when they have NA or Infinite Values
+
+-   Think about which models are most appropriate for each of the central moments based on the distributions of these moments.
