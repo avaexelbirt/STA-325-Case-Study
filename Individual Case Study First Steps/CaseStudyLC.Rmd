@@ -1,0 +1,241 @@
+---
+title: "STA 325 Case Study"
+author: "Laura Cai"
+output: html_document
+---
+
+```{r}
+## Loading the libraries 
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+# install.packages(moments)
+
+
+#library(moments)
+
+## Loading the data
+train <- read.csv("Data/data-train.csv")
+train
+
+```
+
+
+```{r}
+train_filter <- filter(train, Fr != Inf)
+```
+
+
+UNIVARIATE
+```{r}
+
+summary(train)
+
+# R_moment_1
+ggplot(train_filter, aes(x=R_moment_1)) + 
+  geom_histogram(bins = 30) +
+  labs(
+    title = "R_moment_1"
+  )
+
+# R_moment_2
+ggplot(train_filter, aes(x=R_moment_2)) + 
+  geom_histogram(bins = 30) +
+  labs(
+    title = "R_moment_2"
+  )
+
+# R_moment_3
+ggplot(train_filter, aes(x=R_moment_3)) + 
+  geom_histogram(bins = 30) +
+  labs(
+    title = "R_moment_3"
+  )
+
+# R_moment_4
+ggplot(train_filter, aes(x=R_moment_4)) + 
+  geom_histogram(bins = 30) +
+  labs(
+    title = "R_moment_4"
+  )
+```
+
+```{r}
+# St
+ggplot(train_filter, aes(x=St)) + 
+  geom_histogram(bins=30) +
+  labs(
+    title = "St"
+  )
+
+# Re
+ggplot(train_filter, aes(x=Re)) + 
+  geom_histogram(bins=30) +
+  labs(
+    title = "Re"
+  )
+
+# Fr
+ggplot(train_filter, aes(x=Fr)) + 
+  geom_histogram(bins=30) +
+  labs(
+    title = "Fr"
+  )
+```
+
+
+
+```{r}
+# ST RE FR VS MOMENT 1
+ggplot(train_filter, aes(x=St,y=R_moment_1)) + 
+  geom_point() +
+  labs(
+    title = "St v R_moment_1"
+  )
+
+ggplot(train_filter, aes(x=Re,y=R_moment_1)) + 
+  geom_point() +
+  labs(
+    title = "Re v R_moment_1"
+  )
+
+ggplot(train_filter, aes(x=Fr,y=R_moment_1)) + 
+  geom_point() +
+  labs(
+    title = "Fr v R_moment_1"
+  )
+```
+```{r}
+# ST RE FR VS MOMENT 2
+ggplot(train_filter, aes(x=St,y=R_moment_2)) + 
+  geom_point() +
+  labs(
+    title = "St v R_moment_2"
+  )
+
+ggplot(train_filter, aes(x=Re,y=R_moment_2)) + 
+  geom_point() +
+  labs(
+    title = "Re v R_moment_2"
+  )
+
+ggplot(train_filter, aes(x=Fr,y=R_moment_2)) + 
+  geom_point() +
+  labs(
+    title = "Fr v R_moment_2"
+  )
+```
+
+```{r}
+# ST RE FR VS MOMENT 3
+ggplot(train_filter, aes(x=St,y=R_moment_3)) + 
+  geom_point() +
+  labs(
+    title = "St v R_moment_3"
+  )
+
+ggplot(train_filter, aes(x=Re,y=R_moment_3)) + 
+  geom_point() +
+  labs(
+    title = "Re v R_moment_3"
+  )
+
+ggplot(train_filter, aes(x=Fr,y=R_moment_3)) + 
+  geom_point() +
+  labs(
+    title = "Fr v R_moment_3"
+  )
+```
+
+```{r}
+# ST RE FR VS MOMENT 4
+ggplot(train_filter, aes(x=St,y=R_moment_4)) + 
+  geom_point() +
+  labs(
+    title = "St v R_moment_4"
+  )
+
+ggplot(train_filter, aes(x=Re,y=R_moment_4)) + 
+  geom_point() +
+  labs(
+    title = "Re v R_moment_4"
+  )
+
+ggplot(train_filter, aes(x=Fr,y=R_moment_4)) + 
+  geom_point() +
+  labs(
+    title = "Fr v R_moment_4"
+  )
+```
+```{r}
+train_transform <- train_filter |>
+  mutate(log_St = log(St), 
+         log_Re = log(Re),
+         log_Fr = log(Fr),
+         St_2 = St**2,
+         Re_2 = Re**2,
+         Fr_2 = Fr**2,
+         logistic_Fr = 1/(1+exp(-Fr))
+         )
+```
+
+
+```{r}
+train_transform
+```
+
+
+
+
+
+IGNORE
+
+
+
+```{r}
+# St, Re, Fr; filtered Fr
+lm.fit <- lm(R_moment_1 ~ St+Re+Fr , data = filter_inf)
+summary(lm.fit)
+plot(lm.fit)
+```
+
+```{r}
+# clean data
+
+train <- train |>
+  mutate(log_St = log(St)) |>
+  mutate(log_Re = log(Re)) |>
+  mutate(log_Fr = log(Fr)) |>
+  mutate(St_2 = St**2) |>
+  mutate(Re_2 = Re**2) |>
+  mutate(Fr_2 = Fr**2)
+           
+          
+filter_inf_log <- filter(train, Fr != Inf)
+
+
+
+#lm.fit <- lm(R_moment_1 ~ St+Re+Fr+log_St+log_Re+log_Fr+St_2+Re_2+Fr_2 , data = filter_inf_log)
+
+lm.fit <- lm(R_moment_1 ~ St+Re+Fr+St_2+Re_2+Fr_2 , data = filter_inf_log)
+summary(lm.fit)
+plot(lm.fit)
+```
+```{r}
+lm.fit <- lm(log(R_moment_1) ~ St + Re + Fr + St_2 + Re_2 + Fr_2 + log_St + log_Re + log_Fr, data = filter_inf_log)
+summary(lm.fit)
+plot(lm.fit)
+
+
+```
+
+```{r}
+lm.fit <- lm(log(R_moment_1) ~ Fr + Re_2 + log_St , data = filter_inf_log)
+summary(lm.fit)
+plot(lm.fit)
+```
+
+
+
+
+
