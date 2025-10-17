@@ -46,7 +46,7 @@ output$sd <- sqrt(output$mu2_central) # sd= sqrt(2nd central moment)
 output$skewness <- output$mu3_central / (output$sd^3) # 3rd cm / sd^3
 output$kurtosis <- output$mu4_central / (output$sd^4) #4th cm/ sd^4
 
-central_moments_combined <- cbind(data, output)
+central_moments_combined <- cbind(data_csv, output)
 ```
 
 #Transform Predictors
