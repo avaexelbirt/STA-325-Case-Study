@@ -15,7 +15,7 @@ library(ggplot2)
 library(moments)
 
 ## Loading the data
-data <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
+data_csv <- read.csv("Data/data-train.csv")
 ```
 
 # Convert to central moments
@@ -24,10 +24,10 @@ data <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
 library(moments)
 
 # raw moments from training data
-m1 <- data$R_moment_1   
-m2 <- data$R_moment_2
-m3 <- data$R_moment_3
-m4 <- data$R_moment_4
+m1 <- data_csv$R_moment_1   
+m2 <- data_csv$R_moment_2
+m3 <- data_csv$R_moment_3
+m4 <- data_csv$R_moment_4
 
 # raw moments starting at 0
 raw_mat0 <- cbind(m0 = 1, m1 = m1, m2 = m2, m3 = m3, m4 = m4)
@@ -49,6 +49,21 @@ output$kurtosis <- output$mu4_central / (output$sd^4) #4th cm/ sd^4
 central_moments_combined <- cbind(data, output)
 ```
 
+#Transform Predictors
+```{r}
+data <- central_moments_combined |>
+  mutate(log_St = log(St), 
+         log_Re = log(Re),
+         St_2 = St**2,
+         Re_2 = Re**2,
+         Fr_2 = Fr**2,
+         St_sqrt = sqrt(St),
+         Re_sqrt = sqrt(Re),
+         logistic_Fr = 1/(1+exp(-Fr))
+         )
+```
+
+
 ## Distribution of St, Re, Fr
 
 ### St: size of particles
@@ -56,11 +71,27 @@ central_moments_combined <- cbind(data, output)
 ```{r}
 # Histogram for the different input variables
 
+# no transformations
 ggplot(data, aes(x = St)) +
   geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
   labs(title = "Histogram of St", x = "St", y = "Count")
 
+# log transformed
+ggplot(data, aes(x = log_St)) +
+  geom_histogram(bins = 30, fill = "purple", color = "black") +
+  labs(title = "Histogram of log(St)", x = "log(St)", y = "Count")
+
+# squared transformed
+ggplot(data, aes(x = St_2)) +
+  geom_histogram(bins = 30, fill = "pink", color = "black") +
+  labs(title = "Histogram of St^2", x = "St^2", y = "Count")
+
+ggplot(data, aes(x = St_sqrt)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  labs(title = "Histogram of sqrt(St)", x = "log(St)", y = "Count")
+
 ```
+
 
 ```{r}
 # Finding whether there are any outliers
@@ -85,6 +116,18 @@ ggplot(data, aes(x = Re)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Re", x = "Re", y = "Count")
 
+ggplot(data, aes(x = log_Re)) +
+  geom_histogram(bins = 30, fill = "purple", color = "black") +
+  labs(title = "Histogram of log(Re)", x = "log(Re)", y = "Count")
+
+ggplot(data, aes(x = Re_2)) +
+  geom_histogram(bins = 30, fill = "pink", color = "black") +
+  labs(title = "Histogram of Re^2", x = "Re^2", y = "Count")
+
+ggplot(data, aes(x = Re_sqrt)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  labs(title = "Histogram of sqrt(Re)", x = "log(Re)", y = "Count")
+
 # Finding the unique values of Re
 unique(data$Re)
 table(data$Re)
@@ -103,6 +146,10 @@ Note: This variable has infinite values
 ggplot(data, aes(x = Fr)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Fr", x = "Fr", y = "Count")
+
+ggplot(data, aes(x = logistic_Fr)) +
+  geom_histogram(bins = 30, fill = "green", color = "black") +
+  labs(title = "Histogram of logistic of Fr", x = "Transformed Fr", y = "Count")
 
 # Finding the unique values of Re
 table(data$Fr)
