@@ -314,19 +314,19 @@ First we will fit 5 different models to predict mean. The first is a simple line
 ```{r}
 set.seed(325)
 
-## Model 1: Simple Linear Model
+# Model 1: Simple Linear Model
 model_mean_linear <- lm(mean ~ sqrt(St) + Re + logistic_Fr, data = data)
 summary(model_mean_linear)
 
 
 
-## Model 2: Linear Model with Interactions
+# Model 2: Linear Model with Interactions
 model_mean_interact <- lm(mean ~ sqrt(St) * Re * logistic_Fr, data = data)
 summary(model_mean_interact)
 
 
 
-## Model 3: Polynomial Model
+# Model 3: Polynomial Model
 model_mean_poly <- lm(mean ~ poly(sqrt(St), 2) + poly(Re, 2) + poly(logistic_Fr, 2) +
                         sqrt(St):Re + sqrt(St):logistic_Fr + Re:logistic_Fr, 
                       data = data)
@@ -334,7 +334,7 @@ summary(model_mean_poly)
 
 
 
-## Model 4: Ridge Regression
+# Model 4: Ridge Regression
 X_mean <- model.matrix(mean ~ sqrt(St) * Re * logistic_Fr + 
                          I(sqrt(St)^2) + I(Re^2) + I(logistic_Fr^2), data = data)[,-1]
 y_mean <- data$mean
@@ -345,7 +345,7 @@ model_mean_ridge <- glmnet(X_mean, y_mean, alpha = 0, lambda = cv_ridge_mean$lam
 
 
 
-## Model 5: Spline Model
+# Model 5: Spline Model
 model_mean_spline <- lm(mean ~ bs(sqrt(St), df = 4) + bs(Re, df = 3) + 
                           bs(logistic_Fr, df = 3) +
                           sqrt(St):Re + sqrt(St):logistic_Fr, 
@@ -446,7 +446,7 @@ ggplot(cv_results_mean, aes(x = reorder(Model, RMSE), y = RMSE)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
-
+Based on the results, the best model to predict mean is the polynomial model. It has the highest R^2 value of about 95.7% and has the lowest RMSE of abut 0.011. Spline is the second best choice for a model to predict mean as it has an R^2 value of 95.3% and an RSE of 0.12. Both of these models are very close. (We may want to take a look at physics background knowledge to choose the best).
 
 ## Models for Kurtosis 
 First we will fit 5 different models to predict kurtosis The first is a simple linear model, second is a linear model with interaction terms, polynomial model with quadratic terms, Ridge Regression, and a Spline Model. 
@@ -571,4 +571,6 @@ ggplot(cv_results_kurt, aes(x = reorder(Model, RMSE), y = RMSE)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
+
+To predict Kurtosis, the polynomial model has the best perfomance with an RMSE of about 14,301 and an R^2 of 83.5% which is about twice as much as other models R^2 perfomance (except spline). 
 
