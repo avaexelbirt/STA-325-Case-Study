@@ -1,13 +1,13 @@
 EDA- Abby
 
 ```{r}
-train <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
-test <- read.csv("/home/guest/STA-325-Case-Study/Data/data-test.csv")
+train <- read.csv("data-train.csv")
 ```
 
 ```{r}
 # convert raw moments to central moments
 library(moments)
+library(boot)
 
 # raw moments from training data
 m1 <- train$R_moment_1   
@@ -34,3 +34,282 @@ output$kurtosis <- output$mu4_central / (output$sd^4) #4th cm/ sd^4
 
 central_moments_combined <- cbind(train, output)
 ```
+
+
+## Exploring Models
+
+```{r}
+data <- read.csv("data_transformed.csv")
+```
+
+### Response is first central moment: mean
+
+- Re- treat as categorical if we want it to be for inference
+- Fr- logistic
+- St- use log(St) or sqrt(St) for symmetry
+- Mean response- log(mean) for symmetry
+
+```{r}
+# linear model
+lm_linear <- lm(log(mean) ~ Re + logistic_Fr + St_sqrt, data = data)
+summary(lm_linear)
+plot(lm_linear)
+```
+Adjusted R^2: 93% but the residuals are not randomly scattered around zero-> indicates a non-linear relationship between predictors and response
+U-shape in residuals indicate underfitting model
+
+
+```{r}
+# trying adding polynomial terms
+lm_poly <- lm(log(mean) ~ poly(Re, 2) + logistic_Fr + St_sqrt, data = data)
+plot(lm_poly)
+
+anova(lm_linear, lm_poly)
+AIC(lm_linear, lm_poly)
+BIC(lm_linear, lm_poly)
+summary(lm_poly)$adj.r.squared
+
+```
+ANOVA test suggest p <0.05, so adding curvature does improve model - this new model has much lower AIC and BIC too 
+
+Adding quadratic term to Re seemed to capture curvature of the model 
+Adjusted R^2 is 99% --> this may suggest model overfit 
+
+
+```{r}
+# splines
+library(splines)
+
+lm_spline <- lm(log(mean) ~ ns(Re, df = 2) +
+                              ns(logistic_Fr, df = 2) +
+                              ns(St_sqrt, df = 3),
+                data = data)
+plot(lm_spline, which = 1)
+
+anova(lm_linear, lm_poly)
+AIC(lm_linear, lm_poly)
+BIC(lm_linear, lm_poly)
+summary(lm_poly)$adj.r.squared
+
+library(boot)
+set.seed(1)
+
+lm_spline1 <- glm(log(mean) ~ ns(Re, df = 2) +
+                              ns(logistic_Fr, df = 2) +
+                              ns(St_sqrt, df = 3),  data = data, family = gaussian())
+
+
+set.seed(1)
+cv_spline <- cv.glm(data, lm_spline1, K = 10)$delta[1]
+cv_spline
+```
+Similar trend happening with the spline model
+
+Summary:
+It appears that with log(mean) as the response variable, the regular linearity assumptions aren't met. A spline and polynomial model are much better fitted, however with an adjusted R^2 of 99%, this may actually suggest model overfit. 
+
+### Response is second central moment: standard deviation
+
+```{r}
+# lm_mu2 <- lm(mu2_central ~ Re + logistic_Fr + St_sqrt, data = data)
+# 
+# plot(lm_mu2, main = "Residual Diagnostics: lm_mu2")
+# 
+# lm2_mu2 <- lm(mu2_central ~ Re + logistic_Fr + log_St, data = data)
+# 
+# plot(lm_mu2, main = "Residual Diagnostics: lm_mu2")
+# 
+# lm2_mu22 <- lm(mu2_central ~ Re + logistic_Fr + log_St + Re*logistic_Fr, data = data)
+# 
+# plot(lm_mu22, main = "Residual Diagnostics: lm_mu2")
+# 
+# lm2_mu3 <- lm(sqrt(mu2_central) ~ Re + logistic_Fr + log_St, data = data)
+# 
+# plot(lm_mu2, main = "Residual Diagnostics: lm_mu3")
+```
+
+```{r}
+lm_mu2 <- lm(mu2_central ~ Re + logistic_Fr + St_sqrt, data = data)
+plot(lm_mu2, main = "Residual Diagnostics")
+summary(lm_mu2)$adj.r.squared
+
+# using log(mean) as response
+lm_log <- lm(log(mu2_central) ~ Re + logistic_Fr + St_sqrt, data = data)
+plot(lm_log, main = "Residual Diagnostics")
+summary(lm_log)$adj.r.squared
+
+# using log_St as predictor vs St_sqrt
+lm_mu22 <- lm(log(mu2_central) ~ Re + logistic_Fr + log_St, data = data)
+plot(lm_mu22, main = "Residual Diagnostics")
+summary(lm_mu22)$adj.r.squared
+
+# using mean^2 as response
+lm_mu2 <- lm(I(mu2_central^2) ~ Re + logistic_Fr + St_sqrt, data = data)
+plot(lm_mu2, main = "Residual Diagnostics")
+```
+
+The log transformation of the mean make the residuals more randomly scattered about zero, and addresses some outliers from the qqplot. Using log_St or St_sqrt results in around similar residuals. 
+Best adjusted R^2 from log(mean) model with 62%
+
+
+```{r}
+# comparing CV error across 5-fold CV
+
+cv_mu2  <- cv.glm(data, lm_mu2,  K = 5)$delta[1]
+# cv_log  <- cv.glm(data, lm_log,  K = 5)$delta[1] response has negative values
+# cv_mu22 <- cv.glm(data, lm_mu22, K = 5)$delta[1]
+
+cv_mu2
+# cv_log
+# cv_mu22
+
+```
+
+### Ridge/Lasso 
+```{r}
+# ridge regression - good for interpretability
+library(glmnet)
+
+X <- model.matrix(mu2_central ~ Re + logistic_Fr + St_sqrt, data = data)[, -1]
+y <- data$mu2_central
+ridge_cv <- cv.glmnet(X, y, alpha = 0)   # cross-validation to choose lambda
+# plot(ridge_cv)
+
+ridge_best_lambda <- ridge_cv$lambda.min
+ridge_best_lambda
+
+ridge_model <- glmnet(X, y, alpha = 0, lambda = ridge_best_lambda)
+coef(ridge_model)
+
+```
+
+```{r}
+# lasso regression- good for prediction
+
+lasso_cv <- cv.glmnet(X, y, alpha = 1)
+# plot(lasso_cv)
+
+lasso_best_lambda <- lasso_cv$lambda.min
+lasso_best_lambda
+
+lasso_model <- glmnet(X, y, alpha = 1, lambda = lasso_best_lambda)
+coef(lasso_model)
+
+```
+
+```{r}
+# compare lasso and ridge
+ridge_pred <- predict(ridge_model, s = ridge_best_lambda, newx = X)
+lasso_pred <- predict(lasso_model, s = lasso_best_lambda, newx = X)
+
+ridge_rmse <- sqrt(mean((ridge_pred - y)^2))
+lasso_rmse <- sqrt(mean((lasso_pred - y)^2))
+
+ridge_rmse
+lasso_rmse
+
+data.frame(
+  Model = c("Ridge", "Lasso"),
+  Best_Lambda = c(ridge_best_lambda, lasso_best_lambda),
+  RMSE = c(ridge_rmse, lasso_rmse)
+)
+```
+
+Lasso has slightly better RMSE fit- 227. Given sqrt(St), logistic Fr, and Re and a non-transformed response. 
+
+### Spline model - cubic spline
+
+Choosing a cubic spline b/c it avoids large oscillations at the boundaries. 
+Using df = 2 or 1 knot for Re and logistic_Fr
+
+```{r}
+library(splines)
+
+spline_model <- lm(mu2_central ~ 
+                     ns(Re, df = 2) +       
+                     ns(logistic_Fr, df = 2) + 
+                     ns(St_sqrt, df = 3),       
+                   data = data)
+
+summary(spline_model)
+
+summary(spline_model)$adj.r.squared
+plot(spline_model)
+```
+Adjusted R^2 of 42%. 
+Residuals don't seem to have improved by much. 
+
+```{r}
+# using log transform of SD
+spline_model2 <- lm(log(mu2_central) ~ 
+                     ns(Re, df = 2) +       
+                     ns(logistic_Fr, df = 2) + 
+                     ns(St_sqrt, df = 3),       
+                   data = data)
+
+summary(spline_model2)
+
+summary(spline_model2)$adj.r.squared
+plot(spline_model2)
+```
+Adjusted R^2 of 82%
+Much better residuals
+
+```{r}
+# using log transform of SD, log_St
+spline_model3 <- lm(log(mu2_central) ~ 
+                     ns(Re, df = 2) +       
+                     ns(logistic_Fr, df = 2) + 
+                     ns(log_St, df = 3),       
+                   data = data)
+
+summary(spline_model3)
+
+summary(spline_model3)$adj.r.squared
+plot(spline_model3)
+```
+Adjusted R^2 is 83%
+
+```{r}
+# calculating CV error with these two spline models
+spline_model2 <- glm(log(mu2_central) ~ 
+                       ns(Re, df = 2) + 
+                       ns(logistic_Fr, df = 2) + 
+                       ns(St_sqrt, df = 3),
+                     data = data, family = gaussian())
+
+spline_model3 <- glm(log(mu2_central) ~ 
+                       ns(Re, df = 2) + 
+                       ns(logistic_Fr, df = 2) + 
+                       ns(log_St, df = 3),
+                     data = data, family = gaussian())
+
+spline_model1 <- glm(mu2_central ~ 
+                     ns(Re, df = 2) +       
+                     ns(logistic_Fr, df = 2) + 
+                     ns(St_sqrt, df = 3),       
+                   data = data, family = gaussian())
+
+
+set.seed(1)
+cv_spline2 <- cv.glm(data, spline_model2, K = 10)$delta[1]
+cv_spline3 <- cv.glm(data, spline_model3, K = 10)$delta[1]
+cv_spline1 <- cv.glm(data, spline_model1, K = 10)$delta[1]
+
+cv_table <- data.frame(
+  Model = c("Spline with St_sqrt", "Spline with log_St", "Spline no transform"),
+  CV_MSE = c(cv_spline2, cv_spline3, cv_spline1),
+  CV_RMSE = sqrt(c(cv_spline2, cv_spline3, cv_spline1))
+)
+print(cv_table)
+```
+CV MSE and RMSE is slightly higher with St_sqrt- prefer St_sqrt as predictor
+
+Takeaway:
+Out of spline models, one with log(mean) response and St_sqrt, numeric Re, and logistic Fr predictors is best model with highest adjusted R^2 and lowest CV MSE. 
+
+
+### Polynomial Regression Model
+
+
+
