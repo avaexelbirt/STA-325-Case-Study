@@ -19,6 +19,7 @@ data_csv <- read.csv("Data/data-train.csv")
 ```
 
 # Convert to central moments
+
 ```{r}
 # convert raw moments to central moments
 library(moments)
@@ -42,6 +43,7 @@ output <- data.frame(
   mu4_central = central_all[, 5] # kurtosis
 )
 
+# Converting the central moments to statistics by dividing by sd
 output$sd <- sqrt(output$mu2_central) # sd= sqrt(2nd central moment)
 output$skewness <- output$mu3_central / (output$sd^3) # 3rd cm / sd^3
 output$kurtosis <- output$mu4_central / (output$sd^4) #4th cm/ sd^4
@@ -49,8 +51,10 @@ output$kurtosis <- output$mu4_central / (output$sd^4) #4th cm/ sd^4
 central_moments_combined <- cbind(data_csv, output)
 ```
 
-#Transform Predictors
+# Transform Predictors
+
 ```{r}
+# Final dataframe with transformed predictors as well
 data <- central_moments_combined |>
   mutate(log_St = log(St), 
          log_Re = log(Re),
@@ -59,10 +63,9 @@ data <- central_moments_combined |>
          Fr_2 = Fr**2,
          St_sqrt = sqrt(St),
          Re_sqrt = sqrt(Re),
-         logistic_Fr = 1/(1+exp(-Fr))
+         logistic_Fr = 1/(1+exp(-Fr)) # using logitistic transformation for inf
          )
 ```
-
 
 ## Distribution of St, Re, Fr
 
@@ -86,30 +89,36 @@ ggplot(data, aes(x = St_2)) +
   geom_histogram(bins = 30, fill = "pink", color = "black") +
   labs(title = "Histogram of St^2", x = "St^2", y = "Count")
 
+# square root transformed
 ggplot(data, aes(x = St_sqrt)) +
   geom_histogram(bins = 30, fill = "blue", color = "black") +
   labs(title = "Histogram of sqrt(St)", x = "log(St)", y = "Count")
 
 ```
-It looks like the square root transformation is the best because none of the original ST values are negative and thus they aren't negative after being square rooted, while the log transformation does make them negative. 
+
+Square root and log transformations have the most symmetric distributions. Square root is preferred since the range of St values is positive, so square root transformation will preserve the sign.
 
 ### Re: intensity of the turbulence within the flow
 
 ```{r}
 # Histogram for the different input variables
 
+# no transformations
 ggplot(data, aes(x = Re)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Re", x = "Re", y = "Count")
 
+# log tranformed
 ggplot(data, aes(x = log_Re)) +
   geom_histogram(bins = 30, fill = "purple", color = "black") +
   labs(title = "Histogram of log(Re)", x = "log(Re)", y = "Count")
 
+# squared transformed
 ggplot(data, aes(x = Re_2)) +
   geom_histogram(bins = 30, fill = "pink", color = "black") +
   labs(title = "Histogram of Re^2", x = "Re^2", y = "Count")
 
+# square root transformed
 ggplot(data, aes(x = Re_sqrt)) +
   geom_histogram(bins = 30, fill = "blue", color = "black") +
   labs(title = "Histogram of sqrt(Re)", x = "log(Re)", y = "Count")
@@ -119,7 +128,7 @@ unique(data$Re)
 table(data$Re)
 ```
 
-It is interesting that Re only has 3 possible values: 90, 224, 398. This likely means that there are three main types of clouds so it might be advantageous to try and determine which clouds are which. It appears as though 398 is the least frequent Re value while 224 is the most frequent.
+Notice Re only has 3 possible values: 90, 224, 398. This likely means that there are three main types of clouds so it might be advantageous to try use a categorical variable at points for interpretability. The distributions across all transformations are fairly similar since there are only three distinct Re values.
 
 ### Fr: degree of gravitation acceleration experienced by the flow
 
@@ -128,10 +137,12 @@ Note: This variable has infinite values
 ```{r}
 # Histogram for the different input variables
 
+# no transformations
 ggplot(data, aes(x = Fr)) +
   geom_histogram(fill = "skyblue", color = "black") +
   labs(title = "Histogram of Fr", x = "Fr", y = "Count")
 
+# logistic transformation
 ggplot(data, aes(x = logistic_Fr)) +
   geom_histogram(bins = 30, fill = "green", color = "black") +
   labs(title = "Histogram of logistic of Fr", x = "Transformed Fr", y = "Count")
@@ -141,4 +152,13 @@ table(data$Fr)
 
 
 ```
+
 Similarly to Re above, Fr only has three possible values: 0.052, 0.300, and Inf. The distribution of these variables is fairly even with 0.052 being the most common value and 0.3 being the least common value. We decided to use the logit transformation for Fr so that the values are bound between 0 and 1 which will handle the problem with the infinite values.
+
+## Key Takeaways
+
+-   St: log(St) and sqrt(St) both have more symmetric distributions - prefer sqrt(St) since all transformed values are still positive
+
+-   Re: Could be treated categorically since there are only 3 unique cloud types. None of the transformations greatly changed the distribution of the variable since there are only 3 unique types so continue investigating the impact of different transformations in the models.
+
+-   Fr: Use logistic transformation of the variable to ensure all values are bound between 0 and 1 to address the infinite values. Also explore treating Fr as categorical since there are 3 unique values.
