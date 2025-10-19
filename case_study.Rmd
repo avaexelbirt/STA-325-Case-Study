@@ -38,8 +38,8 @@ central_all <- t(apply(raw_mat0, 1, raw2central))
 output <- data.frame(
   mean        = m1, # mean- first raw moment
   mu2_central = central_all[, 3], # sd 
-  mu3_central = central_all[, 4],
-  mu4_central = central_all[, 5]
+  mu3_central = central_all[, 4], # skew
+  mu4_central = central_all[, 5] # kurtosis
 )
 
 output$sd <- sqrt(output$mu2_central) # sd= sqrt(2nd central moment)
@@ -91,21 +91,7 @@ ggplot(data, aes(x = St_sqrt)) +
   labs(title = "Histogram of sqrt(St)", x = "log(St)", y = "Count")
 
 ```
-
-
-```{r}
-# Finding whether there are any outliers
-quartiles_st <- quantile(data$St, probs = c(0.25, 0.5, 0.75))
-IQR_value_st <- (quartiles_st[[3]] - quartiles_st[[1]]) * 1.5
-
-# Outliers would be above or below
-lower_bound_st <- quartiles_st[[1]] - IQR_value_st
-upper_bound_st <- quartiles_st[[3]] + IQR_value_st
-print(lower_bound_st)
-print(upper_bound_st)
-```
-
-Notice: St is right skewed with several outliers above the 2.05 range. It might be worth further exploring transforming this variable.
+It looks like the square root transformation is the best because none of the original ST values are negative and thus they aren't negative after being square rooted, while the log transformation does make them negative. 
 
 ### Re: intensity of the turbulence within the flow
 
@@ -133,7 +119,6 @@ unique(data$Re)
 table(data$Re)
 ```
 
-
 It is interesting that Re only has 3 possible values: 90, 224, 398. This likely means that there are three main types of clouds so it might be advantageous to try and determine which clouds are which. It appears as though 398 is the least frequent Re value while 224 is the most frequent.
 
 ### Fr: degree of gravitation acceleration experienced by the flow
@@ -156,14 +141,4 @@ table(data$Fr)
 
 
 ```
-Similarily to Re above, Fr only has three possible values: 0.052, 0.300, and Inf. The distribution of these variables is fairly even with 0.052 being the most common value and 0.3 being the least common value. We are going to have to determine how we want to handle infinite Fr values.
-
-From class, we know that lower hanging clouds have a higher Fr value so we could assume that those with infinite Fr are likely to be lower hanging.
-
-**QUESTION**: Should 0.3 or Infinity be treated as a higher Fr value for lower hanging clouds?
-
-**QUESTION:** What does an infinite Fr value mean? What is causing them?
-
--   Given the magnitude of the other values for Fr, I would assume they are being caused by a division by 0 error.
-
--   Froud Number = V / sqrt(gL) so likely g or L is negative where g is acceleration due to gravity and L is characteristic length of the flow. (g is likely 0)
+Similarly to Re above, Fr only has three possible values: 0.052, 0.300, and Inf. The distribution of these variables is fairly even with 0.052 being the most common value and 0.3 being the least common value. We decided to use the logit transformation for Fr so that the values are bound between 0 and 1 which will handle the problem with the infinite values.
