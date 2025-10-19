@@ -13,6 +13,9 @@ library(dplyr)
 library(ggplot2)
 # install.packages(moments)
 library(moments)
+library(glmnet)  
+library(splines) 
+library(caret)
 
 ## Loading the data
 data_csv <- read.csv("Data/data-train.csv")
@@ -35,6 +38,8 @@ raw_mat0 <- cbind(m0 = 1, m1 = m1, m2 = m2, m3 = m3, m4 = m4)
 
 # raw to central
 central_all <- t(apply(raw_mat0, 1, raw2central))
+
+
 
 output <- data.frame(
   mean        = m1, # mean- first raw moment
@@ -298,3 +303,272 @@ The three distinct distributions from the transformation could relate to the pot
 -   Skew: Bimodal (almost trimodal) with the distributions centered around 90 and 260. The transformations created three distinct distributions which could be caused by the categorical nature of both the Fr and Re variables (maybe the distinct skew distributions are connected to each cloud type).
 
 -   Kurtosis: Right skewed and bimodal – log(kurtosis) has three distinct distributions which could connect to the categorical nature of Fr and Re with specific cloud types.
+
+
+
+
+
+
+## Models for Mean 
+First we will fit 5 different models to predict mean. The first is a simple linear model, second is a linear model with interaction terms, polynomial model with quadratic terms, Ridge Regression, and a Spline Model. 
+```{r}
+set.seed(325)
+
+## Model 1: Simple Linear Model
+model_mean_linear <- lm(mean ~ sqrt(St) + Re + logistic_Fr, data = data)
+summary(model_mean_linear)
+
+
+
+## Model 2: Linear Model with Interactions
+model_mean_interact <- lm(mean ~ sqrt(St) * Re * logistic_Fr, data = data)
+summary(model_mean_interact)
+
+
+
+## Model 3: Polynomial Model
+model_mean_poly <- lm(mean ~ poly(sqrt(St), 2) + poly(Re, 2) + poly(logistic_Fr, 2) +
+                        sqrt(St):Re + sqrt(St):logistic_Fr + Re:logistic_Fr, 
+                      data = data)
+summary(model_mean_poly)
+
+
+
+## Model 4: Ridge Regression
+X_mean <- model.matrix(mean ~ sqrt(St) * Re * logistic_Fr + 
+                         I(sqrt(St)^2) + I(Re^2) + I(logistic_Fr^2), data = data)[,-1]
+y_mean <- data$mean
+
+cv_ridge_mean <- cv.glmnet(X_mean, y_mean, alpha = 0, nfolds = 5)
+model_mean_ridge <- glmnet(X_mean, y_mean, alpha = 0, lambda = cv_ridge_mean$lambda.min)
+
+
+
+
+## Model 5: Spline Model
+model_mean_spline <- lm(mean ~ bs(sqrt(St), df = 4) + bs(Re, df = 3) + 
+                          bs(logistic_Fr, df = 3) +
+                          sqrt(St):Re + sqrt(St):logistic_Fr, 
+                        data = data)
+summary(model_mean_spline)
+```
+
+Next, we will use 5-fold CV for all 5 mean models to see which is the best overall performing model.
+```{r}
+set.seed(325)
+k_folds <- 5
+folds <- createFolds(data$mean, k = k_folds, list = TRUE)
+
+cv_results_mean <- data.frame(
+  Model = c("Linear", "Interaction", "Polynomial", "Ridge", "Spline"),
+  RMSE = rep(0, 5),
+  MAE = rep(0, 5),
+  R_squared = rep(0, 5)
+)
+
+calc_metrics <- function(actual, predicted) {
+  rmse <- sqrt(mean((actual - predicted)^2))
+  mae <- mean(abs(actual - predicted))
+  r2 <- 1 - sum((actual - predicted)^2) / sum((actual - mean(actual))^2)
+  return(c(rmse, mae, r2))
+}
+
+for (model_idx in 1:5) {
+  fold_rmse <- numeric(k_folds)
+  fold_mae <- numeric(k_folds)
+  fold_r2 <- numeric(k_folds)
+  
+  for (i in 1:k_folds) {
+    test_indices <- folds[[i]]
+    train_data <- data[-test_indices, ]
+    test_data <- data[test_indices, ]
+    if (model_idx == 1) {
+      #linear
+      fit <- lm(mean ~ sqrt(St) + Re + logistic_Fr, data = train_data)
+      predictions <- predict(fit, newdata = test_data)
+      
+    } else if (model_idx == 2) {
+      #interact
+      fit <- lm(mean ~ sqrt(St) * Re * logistic_Fr, data = train_data)
+      predictions <- predict(fit, newdata = test_data)
+      
+    } else if (model_idx == 3) {
+      #poly
+      fit <- lm(mean ~ poly(sqrt(St), 2) + poly(Re, 2) + poly(logistic_Fr, 2) +
+                  sqrt(St):Re + sqrt(St):logistic_Fr + Re:logistic_Fr, 
+                data = train_data)
+      predictions <- predict(fit, newdata = test_data)
+    } else if (model_idx == 4) {
+      #ridge
+      X_train <- model.matrix(mean ~ sqrt(St) * Re * logistic_Fr + 
+                                I(sqrt(St)^2) + I(Re^2) + I(logistic_Fr^2), 
+                              data = train_data)[,-1]
+      y_train <- train_data$mean
+      X_test <- model.matrix(mean ~ sqrt(St) * Re * logistic_Fr + 
+                               I(sqrt(St)^2) + I(Re^2) + I(logistic_Fr^2), 
+                             data = test_data)[,-1]
+      
+      cv_ridge <- cv.glmnet(X_train, y_train, alpha = 0, nfolds = 5)
+      fit <- glmnet(X_train, y_train, alpha = 0, lambda = cv_ridge$lambda.min)
+      predictions <- predict(fit, newx = X_test, s = cv_ridge$lambda.min)
+    } else if (model_idx == 5) {
+      #spline
+      fit <- lm(mean ~ bs(sqrt(St), df = 4) + bs(Re, df = 3) + 
+                  bs(logistic_Fr, df = 3) +
+                  sqrt(St):Re + sqrt(St):logistic_Fr, 
+                data = train_data)
+      predictions <- predict(fit, newdata = test_data)
+    }
+    
+
+    metrics <- calc_metrics(test_data$mean, predictions)
+    fold_rmse[i] <- metrics[1]
+    fold_mae[i] <- metrics[2]
+    fold_r2[i] <- metrics[3]
+  }
+
+  cv_results_mean$RMSE[model_idx] <- mean(fold_rmse)
+  cv_results_mean$MAE[model_idx] <- mean(fold_mae)
+  cv_results_mean$R_squared[model_idx] <- mean(fold_r2)
+}
+
+#show results
+print("=== CROSS-VALIDATION RESULTS FOR MEAN MODELS ===")
+print(cv_results_mean)
+print(paste("Best model for Mean:", cv_results_mean$Model[which.min(cv_results_mean$RMSE)]))
+
+ggplot(cv_results_mean, aes(x = reorder(Model, RMSE), y = RMSE)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = round(RMSE, 4)), vjust = -0.5) +
+  labs(title = "5-Fold CV RMSE for Mean Prediction Models",
+       x = "Model Type", y = "RMSE") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+## Models for Kurtosis 
+First we will fit 5 different models to predict kurtosis The first is a simple linear model, second is a linear model with interaction terms, polynomial model with quadratic terms, Ridge Regression, and a Spline Model. 
+```{r}
+set.seed(325)
+ 
+# Model 1: Simple Linear Model
+model_kurt_linear <- lm(kurtosis ~ sqrt(St) + Re + logistic_Fr, data = data)
+summary(model_kurt_linear)
+
+# Model 2: Linear Model with Interactions
+model_kurt_interact <- lm(kurtosis ~ sqrt(St) * Re * logistic_Fr, data = data)
+summary(model_kurt_interact)
+
+# Model 3: Polynomial Model
+model_kurt_poly <- lm(kurtosis ~ poly(sqrt(St), 2) + poly(Re, 2) + poly(logistic_Fr, 2) +
+                        sqrt(St):Re + sqrt(St):logistic_Fr + Re:logistic_Fr, 
+                      data = data)
+summary(model_kurt_poly)
+
+# Model 4: Ridge Regression
+X_kurt <- model.matrix(kurtosis ~ sqrt(St) * Re * logistic_Fr + 
+                         I(sqrt(St)^2) + I(Re^2) + I(logistic_Fr^2), data = data)[,-1]
+y_kurt <- data$kurtosis
+
+cv_ridge_kurt <- cv.glmnet(X_kurt, y_kurt, alpha = 0, nfolds = 5)
+model_kurt_ridge <- glmnet(X_kurt, y_kurt, alpha = 0, lambda = cv_ridge_kurt$lambda.min)
+
+# Model 5: Spline Model
+model_kurt_spline <- lm(kurtosis ~ bs(sqrt(St), df = 4) + bs(Re, df = 3) + 
+                          bs(logistic_Fr, df = 3) +
+                          sqrt(St):Re + sqrt(St):logistic_Fr, 
+                        data = data)
+summary(model_kurt_spline)
+
+```
+
+
+Next, we will use 5-fold CV for all 5 mean models to see which is the best overall performing model.
+
+```{r}
+set.seed(325)
+cv_results_kurt <- data.frame(
+  Model = c("Linear", "Interaction", "Polynomial", "Ridge", "Spline"),
+  RMSE = rep(0, 5),
+  MAE = rep(0, 5),
+  R_squared = rep(0, 5)
+)
+
+for (model_idx in 1:5) {
+  fold_rmse <- numeric(k_folds)
+  fold_mae <- numeric(k_folds)
+  fold_r2 <- numeric(k_folds)
+  
+  for (i in 1:k_folds) {
+    test_indices <- folds[[i]]
+    train_data <- data[-test_indices, ]
+    test_data <- data[test_indices, ]
+    
+    if (model_idx == 1) {
+      #linear
+      fit <- lm(kurtosis ~ sqrt(St) + Re + logistic_Fr, data = train_data)
+      predictions <- predict(fit, newdata = test_data)
+      
+    } else if (model_idx == 2) {
+      #interact
+      fit <- lm(kurtosis ~ sqrt(St) * Re * logistic_Fr, data = train_data)
+      predictions <- predict(fit, newdata = test_data)
+      
+    } else if (model_idx == 3) {
+      #poly
+      fit <- lm(kurtosis ~ poly(sqrt(St), 2) + poly(Re, 2) + poly(logistic_Fr, 2) +
+                  sqrt(St):Re + sqrt(St):logistic_Fr + Re:logistic_Fr, 
+                data = train_data)
+      predictions <- predict(fit, newdata = test_data)
+      
+    } else if (model_idx == 4) {
+      #ridge
+      X_train <- model.matrix(kurtosis ~ sqrt(St) * Re * logistic_Fr + 
+                                I(sqrt(St)^2) + I(Re^2) + I(logistic_Fr^2), 
+                              data = train_data)[,-1]
+      y_train <- train_data$kurtosis
+      X_test <- model.matrix(kurtosis ~ sqrt(St) * Re * logistic_Fr + 
+                               I(sqrt(St)^2) + I(Re^2) + I(logistic_Fr^2), 
+                             data = test_data)[,-1]
+      
+      cv_ridge <- cv.glmnet(X_train, y_train, alpha = 0, nfolds = 5)
+      fit <- glmnet(X_train, y_train, alpha = 0, lambda = cv_ridge$lambda.min)
+      predictions <- predict(fit, newx = X_test, s = cv_ridge$lambda.min)
+      
+    } else if (model_idx == 5) {
+      #spline
+      fit <- lm(kurtosis ~ bs(sqrt(St), df = 4) + bs(Re, df = 3) + 
+                  bs(logistic_Fr, df = 3) +
+                  sqrt(St):Re + sqrt(St):logistic_Fr, 
+                data = train_data)
+      predictions <- predict(fit, newdata = test_data)
+    }
+    
+    metrics <- calc_metrics(test_data$kurtosis, predictions)
+    fold_rmse[i] <- metrics[1]
+    fold_mae[i] <- metrics[2]
+    fold_r2[i] <- metrics[3]
+  }
+  
+  cv_results_kurt$RMSE[model_idx] <- mean(fold_rmse)
+  cv_results_kurt$MAE[model_idx] <- mean(fold_mae)
+  cv_results_kurt$R_squared[model_idx] <- mean(fold_r2)
+}
+
+#results
+print("=== CROSS-VALIDATION RESULTS FOR KURTOSIS MODELS ===")
+print(cv_results_kurt)
+print(paste("Best model for Kurtosis:", cv_results_kurt$Model[which.min(cv_results_kurt$RMSE)]))
+
+ggplot(cv_results_kurt, aes(x = reorder(Model, RMSE), y = RMSE)) +
+  geom_bar(stat = "identity", fill = "coral") +
+  geom_text(aes(label = round(RMSE, 4)), vjust = -0.5) +
+  labs(title = "5-Fold CV RMSE for Kurtosis Prediction Models",
+       x = "Model Type", y = "RMSE") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
