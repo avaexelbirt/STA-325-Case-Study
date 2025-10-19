@@ -13,6 +13,7 @@ library(dplyr)
 library(ggplot2)
 # install.packages(moments)
 library(moments)
+library(glmnet)
 
 ## Loading the data
 data <- read.csv("data_transformed.csv")
@@ -137,300 +138,112 @@ ggplot(data, aes(x = sqrt(kurtosis))) +
 
 Kurtosis is also right-skewed but not as drastically as mean and standard deviation above. Compared to the transformed distributions for Kurtosis, the untransformed distribution is more symmetric which would indicate that keeping kurtosis untransformed might yield the best results. 
 
+# Skew
+
+## Linear Regression Model
 ```{r}
-```{r}
-## Converting to Summary Statistics
+# Linear regression model
 
-```{r}
-# raw moments from training data
-m1 <- data$R_moment_1   
-m2 <- data$R_moment_2
-m3 <- data$R_moment_3
-m4 <- data$R_moment_4
-
-# raw moments starting at 0
-raw_mat0 <- cbind(m0 = 1, m1 = m1, m2 = m2, m3 = m3, m4 = m4)
-
-# raw to central
-central_all <- t(apply(raw_mat0, 1, raw2central))
-
-output <- data.frame(
-  mean        = m1, # mean- first raw moment
-  mu2_central = central_all[, 3], # sd 
-  mu3_central = central_all[, 4],
-  mu4_central = central_all[, 5]
-)
-
-output$sd <- sqrt(output$mu2_central) # sd= sqrt(2nd central moment)
-output$skewness <- output$mu3_central / (output$sd^3) # 3rd cm / sd^3
-output$kurtosis <- output$mu4_central / (output$sd^4) #4th cm/ sd^4
-
-central_moments_combined <- cbind(train, output)
-
-
+lm_skew <- lm(skewness ~ St + Re + logistic_Fr, data = data)
+summary(lm_skew)
 ```
 
-## Distribution of St, Re, Fr
-
-### St: size of particles
+$R^2$ = 0.4107 is low with only 41.07 % of the variability in the skewness explained by the predictors. All coefficients except St are significant past the 1% level.
 
 ```{r}
-# Histogram for the different input variables
-
-ggplot(data, aes(x = St)) +
-  geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
-  labs(title = "Histogram of St", x = "St", y = "Count")
-
+par(mfrow = c(2,2))
+plot(lm_skew)
 ```
 
-```{r}
-# Finding whether there are any outliers
-quartiles_st <- quantile(data$St, probs = c(0.25, 0.5, 0.75))
-IQR_value_st <- (quartiles_st[[3]] - quartiles_st[[1]]) * 1.5
+The model diagnostic plots raise a lot of concerns about the fit of the linear model. Firstly, there is distinct clustering for the residuals vs fitted values when we would expect to see randomness. The Q-Q plot also has some distinct patterns which is nt ideal. There are also several high leverage points which indicate they are on average very far from the initial predictors. 
 
-# Outliers would be above or below
-lower_bound_st <- quartiles_st[[1]] - IQR_value_st
-upper_bound_st <- quartiles_st[[3]] + IQR_value_st
-print(lower_bound_st)
-print(upper_bound_st)
+```{r}
+# Linear model with the best transformation from each based on EDA
+# RESULTS: performs worse than the model above
+lm_skew2 <- lm(skewness ~ St_sqrt + Re + logistic_Fr, data = data)
+'''
+summary(lm_skew2)
+par(mfrow = c(2,2))
+plot(lm_skew2)
+'''
 ```
 
-Notice: St is right skewed with several outliers above the 2.05 range. It might be worth further exploring transforming this variable.
 
-### Re: intensity of the turbulence within the flow
+## Linear Model with Interaction Terms
+```{r}
+# Interacting Re and logistic_Fr
+lm_skew_int1 <- lm(skewness ~ St + Re * logistic_Fr, data = data)
+summary(lm_skew_int1)
+```
+This model has a higher adjusted $R^2$ value yet St and Re are both now insignificant.
 
 ```{r}
-# Histogram for the different input variables
+par(mfrow = c(2,2))
+plot(lm_skew_int1)
+```
+We still notice the clustering patterns in the residual which are concerning and some points now have even higher leverage.
 
-ggplot(data, aes(x = Re)) +
-  geom_histogram(fill = "skyblue", color = "black") +
-  labs(title = "Histogram of Re", x = "Re", y = "Count")
+```{r}
+# Interacting St and Re
+# RESULTS: performs worse than int1 above with extreme high leverage points
+lm_skew_int2 <- lm(skewness ~ St * Re + logistic_Fr, data = data)
+#summary(lm_skew_int2)
+#par(mfrow = c(2,2))
+#plot(lm_skew_int2)
 
-# Finding the unique values of Re
-unique(data$Re)
-table(data$Re)
+# Interacting St and Re
+# RESULTS: performs worse than int1 above with extreme high leverage points
+lm_skew_int3 <- lm(skewness ~ Re + St * logistic_Fr, data = data)
+#summary(lm_skew_int3)
+#par(mfrow = c(2,2))
+#plot(lm_skew_int3)
+
+# Interacting all three variables
+# RESULTS: R^2 is slightly worse than int1 above with extreme high leverage points
+lm_skew_int4 <- lm(skewness ~ Re * St * logistic_Fr, data = data)
+#summary(lm_skew_int4)
+#par(mfrow = c(2,2))
+#plot(lm_skew_int4)
 ```
 
-It is interesting that Re only has 3 possible values: 90, 224, 398. This likely means that there are three main types of clouds so it might be advantageous to try and determine which clouds are which. It appears as though 398 is the least frequent Re value while 224 is the most frequent.
-
-### Fr: degree of gravitation acceleration experienced by the flow
-
-Note: This variable has infinite values
-
+## Polynomial Models
 ```{r}
-# Histogram for the different input variables
+# Polynomials of degree 2 for St and Re
+# RESULTS: adjusted R^2 is worse than interaction model above and residuals are still clustered, 
+# but the Q-Q plot is better, St is still insignificant
+poly_skew1 <- lm(skewness ~ poly(St, 2) + poly(Re, 2) + logistic_Fr, data = data)
+summary(poly_skew1)
+par(mfrow = c(2,2))
+plot(poly_skew1)
 
-ggplot(data, aes(x = Fr)) +
-  geom_histogram(fill = "skyblue", color = "black") +
-  labs(title = "Histogram of Fr", x = "Fr", y = "Count")
 
-# Finding the unique values of Re
-table(data$Fr)
-
-
+# Polynomials of degree 3 for St, 2 for Re
+# RESULTS: adjusted R^2 is slightly worse than model above, St is still insignificant
+poly_skew2 <- lm(skewness ~ poly(St, 3) + poly(Re, 2) + logistic_Fr, data = data)
+summary(poly_skew2)
+par(mfrow = c(2,2))
+plot(poly_skew2)
 ```
-
-Similarily to Re above, Fr only has three possible values: 0.052, 0.300, and Inf. The distribution of these variables is fairly even with 0.052 being the most common value and 0.3 being the least common value. We are going to have to determine how we want to handle infinite Fr values.
-
-From class, we know that lower hanging clouds have a higher Fr value so we could assume that those with infinite Fr are likely to be lower hanging.
-
-**QUESTION**: Should 0.3 or Infinity be treated as a higher Fr value for lower hanging clouds?
-
-**QUESTION:** What does an infinite Fr value mean? What is causing them?
-
--   Given the magnitude of the other values for Fr, I would assume they are being caused by a division by 0 error.
-
--   Froud Number = V / sqrt(gL) so likely g or L is negative where g is acceleration due to gravity and L is characteristic length of the flow. (g is likely 0)
-
-## Examining Distribution of Central Moments
-
-### Mean
-
+## Ridge Regression
 ```{r}
-# Histogram for the central moments
+y <- data$skewness
+x <- model.matrix(skewness ~ ., data = data)[, -1]
 
-ggplot(data, aes(x = Mean)) +
-  geom_histogram(fill = "skyblue", color = "black") +
-  labs(title = "Histogram of Means", x = "Mean", y = "Count")
-
-```
-
-```{r}
-# Finding whether there are any outliers
-quartiles_mean <- quantile(data$Mean, probs = c(0.25, 0.5, 0.75))
-IQR_value_mean <- (quartiles_mean[[3]] - quartiles_mean[[1]]) * 1.5
-
-# Outliers would be above or below
-lower_bound_mean <- quartiles_mean[[1]] - IQR_value_mean
-upper_bound_mean <- quartiles_mean[[3]] + IQR_value_mean
-print(lower_bound_mean)
-print(upper_bound_mean)
-```
-
-It is clear that mean is right skewed with the majority of the mean values less than 0.25. There is an outlier above 1 which is greatly outside of the IQR range and should likely be handled with a log transformation. However, some of the mean values are negative so they can't be log transformed.
-
-Explore a log transformation of the mean – since some values are negative, I am going to add a constant to each of the values so that they are positive and then log-transform them
-
-```{r}
-# Log transforming the mean
-shift <- abs(min(data$Mean)) + 0.1
-train$log_Mean <- log(data$Mean + shift)
-
-# Histogram for the log-transformed meean
-ggplot(data, aes(x = log_Mean)) +
-  geom_histogram(fill = "skyblue", color = "black") +
-  labs(title = "Histogram of Log Means", x = "Log Mean", y = "Count")
-
-```
-
-Log transforming made the distribution a little more symmetric, although there still appears to be an outlier.
-
-### Standard Deviation
-
-```{r}
-# Histogram for the central moments
-
-ggplot(data, aes(x = Standard_deviation)) +
-  geom_histogram(fill = "skyblue", color = "black") +
-  labs(title = "Histogram of SD", x = "SD", y = "Count")
-```
-
-It appears as though SD around 0 is most common although none of the standard deviations are repeated. They are distributed fairly evenly to the right and left of 0 with few observations which is a good thing.
-
-Transforming the standard deviation:
-
-```{r}
-
-data$sd_trans <- sign(data$Standard_deviation) * sqrt(abs(data$Standard_deviation))
-
-ggplot(data, aes(x = sd_trans)) +
-  geom_histogram(fill = "skyblue", color = "black") +
-  labs(title = "Histogram of SD Transformed", x = "SD Transformed", y = "Count")
-```
-
-The above transformation which takes the square root and maintains the sign is a bit better in terms of having the distribution closer to 0. However, this may be difficult to justify.
-
-### Skewness
-
-```{r}
-# Histogram for the central moments
-
-ggplot(data, aes(x = Skewness)) +
-  geom_histogram(fill = "skyblue", color = "black") +
-  labs(title = "Histogram of Skewness", x = "Skewness", y = "Count")
-```
-
-It is clear that there is one outlier to the left of the graph which is clearly skewing the distribution for skewness.
-
-```{r}
-# Want to remove the outlier and re-plot the distribution
-Skewness <- data.frame(data$Skewness)
-Skewness <- Skewness |>
-  filter(data.Skewness > -1.602621e+160)
-
-ggplot(Skewness, aes(x = data.Skewness)) +
-  geom_histogram(fill = "skyblue", color = "black") +
-  labs(title = "Histogram of Skewness", x = "Skewness", y = "Count")
-```
-
-The distribution of skewness is still very weird despite having removed some of the outliers.
-
-### Kurtosis
-
-```{r}
-# Histogram for the central moments
-
-ggplot(data, aes(x = Kurtosis)) +
-  geom_histogram(fill = "skyblue", color = "black") +
-  labs(title = "Histogram of Kurtosis", x = "Kurtosis", y = "Count")
-```
-
-We notice that Kurtosis has a similarly weird distribution as Skewness above.
-
-## Variable Transformation
-
-For now, assume that the Inf Fr values should be replaced with 0's. (Not sure if this is a fair assumption). We also will need to transform Kurtosis since it has both Infinite and NaN values - for now just replace with 0.
-
-```{r}
-# Replace infinite values with 0
-
-data_new <- data |>
-  mutate(across(
-    where(is.numeric),
-    ~ ifelse(is.infinite(.x) | is.nan(.x), 0, .x)
-  ))
-
-```
-
-For now, I am going to not transform any of the variables because I want to see how the model performs before transformation. I also think it's valuable for us to discuss transformation more as a group before fitting different models.
-
-## Train-Test Split
-
-```{r}
+# Cross validation
 set.seed(325)
+cv_ridge <- cv.glmnet(x, y, alpha = 0, nfolds = 5)
+plot(cv_ridge)
 
-# Getting the appropriate sizes for the dataframe
-sample_size <- floor(0.8 * nrow(data_new))
+best_lambda <- cv_ridge$lambda.min
+print(best_lambda)
 
-train_indices <- sample(seq_len(nrow(data_new)), 
-                        size = sample_size)
-
-# Doing the train-test split
-train <- data_new[train_indices, ]
-test  <- data_new[-train_indices, ]
+# Fit the final model
+fit_ridge <- glmnet(x, y, alpha = 0, lambda = best_lambda)
+coef(fit_ridge, s = "lambda.min")
 ```
-
-## Baseline Linear Model
-
-### Mean
 
 ```{r}
-# Building the baseline linear model
-
-linear_model_mean <- lm(Mean ~ Re + Fr + St, data = data_new)
-summary(linear_model_mean)
+# Making predictions from the ridge fit
+fit_ridge$rmse
 ```
 
-The R\^2 value is very low for the model above which indicates a linear model may not be the best fit.
-
-### Standard Deviation
-
-```{r}
-# Building the baseline linear model
-
-linear_model_sd <- lm(Standard_deviation ~ Re + Fr + St, 
-                      data = data_new)
-summary(linear_model_sd)
-```
-
-This R\^2 value is even lower than for mean, so we likely need to fit more complex models.
-
-### Skewness
-
-```{r}
-# Building the baseline linear model
-
-linear_model_skew <- lm(Skewness ~ Re + Fr + St, 
-                      data = data_new)
-summary(linear_model_skew)
-```
-
-The linear model doesn't even work for this model. I am unsure why this is the case but clearly a more flexible model is required.
-
-### Kurtosis
-
-```{r}
-# Building the baseline linear model
-
-linear_model_kurtosis <- lm(Kurtosis ~ Re + Fr + St, 
-                      data = data_new)
-summary(linear_model_kurtosis)
-```
-
-Similar problem above where the model doesn't really work for the kurtosis values.
-
-## Next Steps:
-
--   Determine how to handle Fr & Kurtosis when they have NA or Infinite Values
-
--   Think about which models are most appropriate for each of the central moments based on the distributions of these moments.
