@@ -92,7 +92,7 @@ ggplot(data, aes(x = St_2)) +
 # square root transformed
 ggplot(data, aes(x = St_sqrt)) +
   geom_histogram(bins = 30, fill = "blue", color = "black") +
-  labs(title = "Histogram of sqrt(St)", x = "log(St)", y = "Count")
+  labs(title = "Histogram of sqrt(St)", x = "sqrt(St)", y = "Count")
 
 ```
 
@@ -121,7 +121,7 @@ ggplot(data, aes(x = Re_2)) +
 # square root transformed
 ggplot(data, aes(x = Re_sqrt)) +
   geom_histogram(bins = 30, fill = "blue", color = "black") +
-  labs(title = "Histogram of sqrt(Re)", x = "log(Re)", y = "Count")
+  labs(title = "Histogram of sqrt(Re)", x = "sqrt(Re)", y = "Count")
 
 # Finding the unique values of Re
 unique(data$Re)
