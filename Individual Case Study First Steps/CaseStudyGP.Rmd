@@ -15,10 +15,130 @@ library(ggplot2)
 library(moments)
 
 ## Loading the data
-data <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
+data <- read.csv("data_transformed.csv")
 
 ```
 
+## EDA for Summary Statistics
+
+### Mean
+```{r}
+# Histogram for the different input variables
+
+# no transformations
+ggplot(data, aes(x = mean)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Mean", x = "Mean", y = "Count")
+
+# log transformed
+ggplot(data, aes(x = log(mean))) +
+  geom_histogram(fill = "purple", color = "black") +
+  labs(title = "Histogram of log(Mean)", x = "log(Mean)", y = "Count")
+
+# squared transformed
+ggplot(data, aes(x = mean^2)) +
+  geom_histogram(fill = "pink", color = "black") +
+  labs(title = "Histogram of Mean^2", x = "Mean^2", y = "Count")
+
+# square root transformed
+ggplot(data, aes(x = sqrt(mean))) +
+  geom_histogram(fill = "blue", color = "black") +
+  labs(title = "Histogram of sqrt(Mean)", x = "sqrt(Mean)", y = "Count")
+
+```
+
+Mean is very right-skewed with the majority of the means concentrated around 0. log(Mean) does make the distribution more symmetric, but converts all of the values to negative which is less interpretable. 
+
+### Standard Deviation
+```{r}
+# Histogram for the different input variables
+
+# no transformations
+ggplot(data, aes(x = sd)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Standard Deviation", x = "Standard Deviation", y = "Count")
+
+# log transformed
+ggplot(data, aes(x = log(sd))) +
+  geom_histogram(fill = "purple", color = "black") +
+  labs(title = "Histogram of log(Standard Deviation)", x = "log(Standard Deviation)", 
+       y = "Count")
+
+# squared transformed
+ggplot(data, aes(x = sd^2)) +
+  geom_histogram(fill = "pink", color = "black") +
+  labs(title = "Histogram of Standard Deviation^2", x = "Standard Deviation^2", y = "Count")
+
+# square root transformed
+ggplot(data, aes(x = sqrt(sd))) +
+  geom_histogram(fill = "blue", color = "black") +
+  labs(title = "Histogram of sqrt(Standard Deviation)", x = "sqrt(Standard Deviation)", 
+       y = "Count")
+
+```
+
+We notice a similar pattern in that Standard Deviation is also very right skewed with the majority of the values close to 0. Log transforming Standard Deviation does make the distribution more symmetric, but also negative which is less interpretable.
+
+### Skewness
+```{r}
+# Histogram for the different input variables
+
+# no transformations
+ggplot(data, aes(x = skewness)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Skew", x = "Skew", y = "Count")
+
+# log transformed
+ggplot(data, aes(x = log(skewness))) +
+  geom_histogram(fill = "purple", color = "black") +
+  labs(title = "Histogram of log(Skew)", x = "log(Skew)", 
+       y = "Count")
+
+# squared transformed
+ggplot(data, aes(x = skewness^2)) +
+  geom_histogram(fill = "pink", color = "black") +
+  labs(title = "Histogram of Skew^2", x = "Skew^2", y = "Count")
+
+# square root transformed
+ggplot(data, aes(x = sqrt(skewness))) +
+  geom_histogram(fill = "blue", color = "black") +
+  labs(title = "Histogram of sqrt(Skew)", x = "sqrt(Skew)", 
+       y = "Count")
+```
+
+Skew has a bi-modal distribution with there being very few observations with a skew between 100 and 200. None of the transformations appear to improve the distribution of skew, often making the distribution tri-modal with clusters instead of more symmetric. For this reason, it might be best to stick with the untransformed values for skew.
+
+### Kurtosis
+```{r}
+# Histogram for the different input variables
+
+# no transformations
+ggplot(data, aes(x = kurtosis)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Kurtosis", x = "Kurtosis", y = "Count")
+
+# log transformed
+ggplot(data, aes(x = log(kurtosis))) +
+  geom_histogram(fill = "purple", color = "black") +
+  labs(title = "Histogram of log(Kurtosis)", x = "log(Kurtosis)", 
+       y = "Count")
+
+# squared transformed
+ggplot(data, aes(x = kurtosis^2)) +
+  geom_histogram(fill = "pink", color = "black") +
+  labs(title = "Histogram of Kurtosis^2", x = "Kurtosis^2", y = "Count")
+
+# square root transformed
+ggplot(data, aes(x = sqrt(kurtosis))) +
+  geom_histogram(fill = "blue", color = "black") +
+  labs(title = "Histogram of sqrt(Kurtosis)", x = "sqrt(Kurtosis)", 
+       y = "Count")
+```
+
+Kurtosis is also right-skewed but not as drastically as mean and standard deviation above. Compared to the transformed distributions for Kurtosis, the untransformed distribution is more symmetric which would indicate that keeping kurtosis untransformed might yield the best results. 
+
+```{r}
+```{r}
 ## Converting to Summary Statistics
 
 ```{r}
