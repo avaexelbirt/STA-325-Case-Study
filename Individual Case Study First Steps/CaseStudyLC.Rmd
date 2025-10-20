@@ -238,4 +238,229 @@ plot(lm.fit)
 
 
 
+```{r}
+## Loading the libraries 
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+## Loading the data
+data <- read.csv("data_transformed.csv")
+data
+```
+
+
+```{r}
+lm.fit1 <- lm(mu2_central ~ log_St+Re+logistic_Fr, data)
+plot(lm.fit1)
+summary(lm.fit1)
+# 3.471e-05
+
+lm.fit2 <- lm(mu2_central ~ St_2+Re+logistic_Fr, data)
+plot(lm.fit2)
+summary(lm.fit2)
+
+lm.fit3 <- lm(log(mu2_central) ~ log_St+Re+logistic_Fr, data)
+plot(lm.fit3) #also good
+summary(lm.fit3)
+
+lm.fit4 <- lm(log(mu2_central) ~ St_2+Re+logistic_Fr, data)
+plot(lm.fit4) # best out of linear
+summary(lm.fit4)
+
+lm.fit5 <- lm(sqrt(mu2_central) ~ log_St+Re+logistic_Fr, data)
+plot(lm.fit5)
+summary(lm.fit5)
+
+lm.fit6 <- lm(sqrt(mu2_central) ~ St_2+Re+logistic_Fr, data)
+plot(lm.fit6)
+summary(lm.fit6)
+
+lm.fit7 <- lm(mu2_central**2 ~ log_St+Re+logistic_Fr, data)
+plot(lm.fit7)
+summary(lm.fit7)
+
+lm.fit8 <- lm(mu2_central**2 ~ St_2+Re+logistic_Fr, data)
+plot(lm.fit8)
+summary(lm.fit8)
+```
+```{r}
+lm.fit9 <- lm(log(mu2_central) ~ (log_St+Re+logistic_Fr)^2, data)
+plot(lm.fit9) #also good, maybe best
+summary(lm.fit9)
+
+lm.fit10 <- lm(log(mu2_central) ~ (St_2+Re+logistic_Fr)^2, data)
+plot(lm.fit10) #also good, maybe best
+summary(lm.fit10)
+
+lm.fit11 <- lm(log(mu2_central) ~ Re+logistic_Fr+Re:logistic_Fr, data)
+plot(lm.fit11) #also good
+summary(lm.fit11)
+```
+
+
+logistic Fr and Re as factors
+```{r}
+lm.fit3 <- lm(log(mu2_central) ~ log_St+factor(Re)+factor(logistic_Fr), data)
+plot(lm.fit3) #also good
+summary(lm.fit3)
+#2.2e-16
+
+lm.fit4 <- lm(log(mu2_central) ~ St_2+factor(Re)+factor(logistic_Fr), data)
+plot(lm.fit4) # best out of linear
+summary(lm.fit4)
+# 2.2e-16
+```
+
+
+```{r}
+
+poly_lm.fit3 <- lm(log(mu2_central) ~ poly(log_St, 5, raw = TRUE)+log_Re+logistic_Fr, data)
+plot(poly_lm.fit3) #also good
+summary(poly_lm.fit3)
+
+poly_lm.fit4 <- lm(log(mu2_central) ~ poly(St_2, 5, raw = TRUE)+Re+logistic_Fr, data)
+plot(poly_lm.fit4) # best out of linear
+summary(poly_lm.fit4)
+```
+
+SPLINE
+```{r}
+install.packages('splines')
+install.packages('Ecdat')
+install.packages('Ecfun')
+
+library(splines)
+library(Ecdat)
+```
+
+```{r}
+spline_model <- lm(log(mu2_central) ~ bs(log_St, knots = quantile(log_St, probs = c(0.25, 0.5, 0.75))) + Re + logistic_Fr, data = data)
+spline_model <- lm(log(mu2_central) ~ bs(log_St, df = 4) + Re + logistic_Fr, data = data)
+plot(spline_model)
+summary(spline_model)
+
+#poly_lm.fit3 <- lm(log(mu2_central) ~ poly(log_St, 5, raw = TRUE)+Re+logistic_Fr, data)
+plot(poly_lm.fit3) #also good
+summary(poly_lm.fit3)
+
+plot(data$logistic_Fr, log(data$mu2_central))
+```
+
+```{r}
+ggplot(data, aes(log_St, log(mu2_central))) + geom_point() + geom_smooth()
+ggplot(data, aes(log(Re), log(mu2_central))) + geom_point() + geom_smooth()
+ggplot(data, aes(logistic_Fr, log(mu2_central))) + geom_point() + geom_smooth()
+```
+
+
+```{r}
+# Step 1: Start simple
+m0 <- lm(log(mu2_central) ~ log_St + log_Re + logistic_Fr, data = data)
+
+# Step 2: Add spline for St
+m1 <- lm(log(mu2_central) ~ bs(log_St, df = 4) + log(Re) + logistic_Fr, data = data) # better
+
+# Step 3: Add spline for Re if needed
+m2 <- lm(log(mu2_central) ~ bs(log_St, df = 4) + bs(log(Re), df = 4) + logistic_Fr, data = data)
+
+m3 <- lm(log(mu2_central) ~ bs(log_St, df = 3) + log(Re) + logistic_Fr, data = data) # better
+
+AIC(m0, m1, m2)
+summary(m0)
+summary(m1)
+summary(m2)
+summary(m3)
+```
+
+LASSO
+```{r}
+y <- log(data$mu2_central)        # or log(mu2_central) if you model log-response
+X <- model.matrix(~ . -1, data = data[, c("log_St", "log_Re", "logistic_Fr")])
+```
+
+```{r}
+#install.packages("glmnet")
+library(glmnet)
+foldid <- sample(rep(1:5, length.out = nrow(X)))
+
+cv_lasso <- cv.glmnet(X, y, alpha = 1, foldid = foldid)
+cv_ridge <- cv.glmnet(X, y, alpha = 0, foldid = foldid)
+```
+
+
+CV
+```{r}
+#install.packages("caret")
+library(caret)
+ctrl <- trainControl(method = "cv", number = 5)
+model_lin1 <- train(log(mu2_central) ~ log_St+log_Re+logistic_Fr, data = data, method = "lm", trControl = ctrl)
+#  2.077942  0.7080959  1.670168
+
+model_lin2 <- train(log(mu2_central) ~ (log_St+log_Re+logistic_Fr)^2, data = data, method = "lm", trControl = ctrl)
+#2.013816  0.7174296  1.486751
+
+model_lin3 <- train(log(mu2_central) ~ (St_2+log_Re+logistic_Fr)^2, data = data, method = "lm", trControl = ctrl)
+#  2.235839  0.7188504  1.657933
+
+model_lin4 <- train(log(mu2_central) ~ log_Re+logistic_Fr+log_Re:logistic_Fr, data = data, method = "lm", trControl = ctrl)
+# 2.166138  0.7381343  1.562537
+
+model_lin5 <- train(log(mu2_central) ~ poly(log_St, 5, raw = TRUE)+log_Re+logistic_Fr, data = data, method = "lm", trControl = ctrl)
+#   2.072878  0.70877   1.656202
+
+model_lin6 <- train(log(mu2_central) ~ bs(log_St, df = 3) + log(Re) + logistic_Fr, data = data, method = "lm", trControl = ctrl)
+#   2.115911  0.7210037  1.657643
+
+model_lin7 <- train(log(mu2_central) ~ log_St+log_Re+logistic_Fr, data = data, method = "lm", trControl = ctrl)
+#  2.091592  0.7071577  1.662186
+
+
+
+sqrt(min(cv_lasso$cvm))
+# 2.068582
+sqrt(min(cv_ridge$cvm))
+# 2.080013
+
+
+
+print(model_lin7)
+
+plot(cv_lasso)
+plot(cv_ridge)
+
+lasso_coefs <- coef(cv_lasso, s = "lambda.min")
+lasso_coefs
+```
+
+
+
+```{r}
+lm.fit3 <- lm(log(mu2_central) ~ log_St+log_Re+logistic_Fr, data)
+plot(lm.fit3) #also good
+summary(lm.fit3)
+
+lm.fit9 <- lm(log(mu2_central) ~ (log_St+log_Re+logistic_Fr)^2, data)
+plot(lm.fit9)
+summary(lm.fit9)
+#0.74 best
+
+lm.fit10 <- lm(log(mu2_central) ~ (St_2+log_Re+logistic_Fr)^2, data)
+plot(lm.fit10) 
+summary(lm.fit10)
+
+
+lm.fit11 <- lm(log(mu2_central) ~ log_Re+logistic_Fr+log_Re:logistic_Fr, data)
+plot(lm.fit11) #also good
+summary(lm.fit11)
+
+poly_lm.fit3 <- lm(log(mu2_central) ~ poly(log_St, 5, raw = TRUE)+log_Re+logistic_Fr, data)
+plot(poly_lm.fit3) #also good
+summary(poly_lm.fit3)
+
+spline <- lm(log(mu2_central) ~ bs(log_St, df = 3) + log(Re) + logistic_Fr, data = data) 
+
+data
+```
+
 
