@@ -15,6 +15,7 @@ library(ggplot2)
 library(moments)
 library(glmnet)
 library(carets) # create k-folds
+library(splines)
 
 ## Loading the data
 data <- read.csv("data_transformed.csv")
@@ -254,6 +255,8 @@ Taking the square root of skewness also results in a really high adjusted R^2 an
 ```{r}
 set.seed(325)
 
+# Original ridge regression model
+
 # Prepare predictors once (same rationale as above)
 y <- data$skewness
 X <- model.matrix(skewness ~ St + Re + logistic_Fr, data = data)[, -1]
@@ -303,7 +306,8 @@ set.seed(325)
 
 # Prepare predictors once (same rationale as above)
 y <- data$skewness
-X <- model.matrix(skewness ~ poly(St, 2) + poly(Re, 2) + logistic_Fr, data = data)[, -1]
+X <- model.matrix(skewness ~ sqrt(St) + poly(Re, 2) + logistic_Fr, data = data)[, -1]
+
 
 nested_ridge <- function(X, y, K_outer = 5, K_inner = 5, seed = 325) {
   set.seed(seed)
@@ -344,9 +348,74 @@ res
 
 ```
 
+The model with the the square root transformation for St and the polynomial term for Re has a slightly lower RMSE and a much lower RMSE standard deviation. 
 
-# Takeaways:
+## Spline Model
+```{r}
+# Spline model with cross validation
+set.seed(123)
+small_data <- data |> 
+  select(St, Re, logistic_Fr, skewness)
+folds <- createFolds(data$skewness, k = 5)
+rmse_vec <- numeric(5)
+r2_vec <- numeric(5)
+
+for (i in 1:5) {
+  test_idx <- folds[[i]]
+  train <- small_data[-test_idx, ]
+  test  <- small_data[test_idx, ]
+
+  fit <- lm(skewness ~ bs(St, df = 5) + bs(Re, df = 4) + 
+              bs(logistic_Fr, df = 4), data = train)
+  preds <- predict(fit, newdata = test)
+
+  # Compute residuals and metrics
+  y_true <- test$skewness
+  n <- length(y_true)
+  p <- length(coef(fit)) - 1        # exclude intercept for p
+
+  rss <- sum((y_true - preds)^2)
+  tss <- sum((y_true - mean(y_true))^2)
+
+  r2 <- 1 - rss/tss
+  adj_r2 <- 1 - (1 - r2) * ((n - 1)/(n - p - 1))
+
+  # Store fold metrics
+  rmse_vec[i]  <- sqrt(mean((y_true - preds)^2))
+  r2_vec[i]    <- r2
+  adjr2_vec[i] <- adj_r2
+}
+
+# Cross-validated metrics
+mean_rmse  <- mean(rmse_vec)
+mean_r2    <- mean(r2_vec)
+mean_adj_r2 <- mean(adjr2_vec)
+sd_rmse <- sd(rmse_vec)
+
+c(CV_RMSE = mean_rmse,
+  CV_R2 = mean_r2,
+  CV_RMSE_sd = sd_rmse)
+```
+
+The spline model has a lower mean RMSE than the ridge regression models but a higher standard deviation for the RMSE. The R^2 is also fairly high but a better measure would probably be adjusted R^2. 
+
+
+## Takeaways for Skewness:
 - Best adjusted R^2 values is from using square root St and categorical values for both Re and Fr --> all coefficients are significant past the 5% level. The residuals are still clustered but it doesn't appear as drastic and the Q-Q plot is better. However, all points have a relatively high Cook's distance which is surprising and not ideal. 
 - sqrt(Skewness) also yields very high adjusted R^2 values but the model diagnostic tools aren't great. 
+- Ridge regression has a lower R^2 value but the RMSE is not terrible and might be worth sacrificing the R^2 if it means that we are able to do a train/test split
+- The spline model has a lower mean RMSE than the ridge regression models but a higher standard deviation of RMSE. The R^2 is also fairly higher for the spline model.
+
+# Kurtosis
+
+## Linear Regression Model
+```{r}
+# Linear regression model
+
+lm_skew <- lm(skewness ~ St + Re + logistic_Fr, data = data)
+summary(lm_skew)
+```
+
+
 
 
