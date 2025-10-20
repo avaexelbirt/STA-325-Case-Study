@@ -146,26 +146,91 @@ summary(lm_mu22)$adj.r.squared
 # using mean^2 as response
 lm_mu2 <- lm(I(mu2_central^2) ~ Re + logistic_Fr + St_sqrt, data = data)
 plot(lm_mu2, main = "Residual Diagnostics")
+
+# using St_2 as a predictor
+lm_mu3 <- lm(log(mu2_central) ~ Re + logistic_Fr + St_2, data = data)
+plot(lm_mu3)
+summary(lm_mu3)
+
+# other good fits
+
+lm.fit3 <- lm(log(mu2_central) ~ St_sqrt + factor(Re)+factor(logistic_Fr), data)
+plot(lm.fit3) # residual isn't as good as St_2
+summary(lm.fit3) # higher adjusted R_2 of 77%
+
+lm.fit4 <- lm(log(mu2_central) ~ St_2+ factor(Re)+factor(logistic_Fr), data)
+plot(lm.fit4) # best out of linear
+summary(lm.fit4)
+
+
+library(caret) 
+
+ctrl <- trainControl(method = "cv", number = 5) 
+
+model_lin1 <- train(log(mu2_central) ~ St_sqrt + factor(Re)+ factor(logistic_Fr), data = data, method = "lm", trControl = ctrl)
+model_lin1 #1.78 RMSE
+
+ctrl2 <- trainControl(method = "cv", number = 5) 
+
+model_lin2 <- train(log(mu2_central) ~ log_St+log_Re+logistic_Fr, data = data, method = "lm", trControl = ctrl)
+model_lin2 #2.08 RMSE
+
 ```
 
 The log transformation of the mean make the residuals more randomly scattered about zero, and addresses some outliers from the qqplot. Using log_St or St_sqrt results in around similar residuals. 
 Best adjusted R^2 from log(mean) model with 62%
 
+Best linear model: 
+- linear regression: St_sqrt, factor Re, factor logistic
+
+### New Ridge/ Lasso based on best linear
 
 ```{r}
-# comparing CV error across 5-fold CV
+# performing with ridge regression
 
-cv_mu2  <- cv.glm(data, lm_mu2,  K = 5)$delta[1]
-# cv_log  <- cv.glm(data, lm_log,  K = 5)$delta[1] response has negative values
-# cv_mu22 <- cv.glm(data, lm_mu22, K = 5)$delta[1]
+ctrl <- trainControl(method = "cv", number = 5)
 
-cv_mu2
-# cv_log
-# cv_mu22
+ridge_fit <- train(
+  log(mu2_central) ~ St_sqrt + factor(Re) + factor(logistic_Fr),
+  data = data,
+  method = "glmnet",
+  trControl = ctrl,
+  preProcess = c("center", "scale"),
+  tuneGrid = expand.grid(alpha = 0,        # alpha = 0 => ridge
+                         lambda = 10^seq(3, -4, length.out = 100)),
+  na.action = na.omit
+)
+
+# Best CV RMSE (averaged over the 5 folds at the best lambda)
+ridge_fit$results$RMSE[which.min(ridge_fit$results$RMSE)]
+# or simply:
+min(ridge_fit$results$RMSE)
+# RMSE from ridge fit- 1.78
 
 ```
 
-### Ridge/Lasso 
+```{r}
+# lasso regression
+ctrl <- trainControl(method = "cv", number = 5)
+
+lasso_fit <- train(
+  log(mu2_central) ~ St_sqrt + factor(Re) + factor(logistic_Fr),
+  data = data,
+  method = "glmnet",
+  trControl = ctrl,
+  preProcess = c("center", "scale"),
+  tuneGrid = expand.grid(alpha = 1,         # alpha = 1 → lasso
+                         lambda = 10^seq(3, -4, length.out = 100)),
+  na.action = na.omit
+)
+
+# Best 5-fold CV RMSE
+min(lasso_fit$results$RMSE)
+
+```
+
+
+### Old Ridge/Lasso 
 ```{r}
 # ridge regression - good for interpretability
 library(glmnet)
@@ -254,6 +319,28 @@ plot(spline_model2)
 ```
 Adjusted R^2 of 82%
 Much better residuals
+
+```{r}
+# spline model cv
+
+set.seed(42)
+
+ctrl <- trainControl(method = "cv", number = 5)
+
+cv_spline <- train(
+  log(mu2_central) ~ 
+    ns(Re, df = 2) + 
+    ns(logistic_Fr, df = 2) + 
+    ns(St_sqrt, df = 3),
+  data = data,
+  method = "lm",
+  trControl = ctrl
+)
+
+# Best 5-fold CV RMSE
+min(cv_spline$results$RMSE) # 1.64
+```
+
 
 ```{r}
 # using log transform of SD, log_St
