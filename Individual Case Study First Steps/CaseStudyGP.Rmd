@@ -148,14 +148,12 @@ Kurtosis is also right-skewed but not as drastically as mean and standard deviat
 
 lm_skew <- lm(skewness ~ St + Re + logistic_Fr, data = data)
 summary(lm_skew)
+par(mfrow = c(2,2))
+plot(lm_skew)
 ```
 
 $R^2$ = 0.4107 is low with only 41.07 % of the variability in the skewness explained by the predictors. All coefficients except St are significant past the 1% level.
 
-```{r}
-par(mfrow = c(2,2))
-plot(lm_skew)
-```
 
 The model diagnostic plots raise a lot of concerns about the fit of the linear model. Firstly, there is distinct clustering for the residuals vs fitted values when we would expect to see randomness. The Q-Q plot also has some distinct patterns which is nt ideal. There are also several high leverage points which indicate they are on average very far from the initial predictors. 
 
@@ -176,13 +174,10 @@ plot(lm_skew2)
 # Interacting Re and logistic_Fr
 lm_skew_int1 <- lm(skewness ~ St + Re * logistic_Fr, data = data)
 summary(lm_skew_int1)
-```
-This model has a higher adjusted $R^2$ value yet St and Re are both now insignificant.
-
-```{r}
 par(mfrow = c(2,2))
 plot(lm_skew_int1)
 ```
+This model has a higher adjusted $R^2$ value yet St and Re are both now insignificant.
 We still notice the clustering patterns in the residual which are concerning and some points now have even higher leverage.
 
 ```{r}
@@ -412,10 +407,255 @@ The spline model has a lower mean RMSE than the ridge regression models but a hi
 ```{r}
 # Linear regression model
 
-lm_skew <- lm(skewness ~ St + Re + logistic_Fr, data = data)
-summary(lm_skew)
+lm_kurt <- lm(kurtosis ~ St + Re + logistic_Fr, data = data)
+summary(lm_kurt)
+```
+```{r}
+par(mfrow = c(2,2))
+plot(lm_kurt)
+```
+Initially, the results for the linear model for kurtosis are better than those for the skew model. Although there are still clusters of points for the residuals, the appears to be less systematic patterns to the clusters. The Q-Q plot is also better and there are fewer points with extremely high leverage. However, the $R^2$ value is lower than that for the skew linear model. 
+
+```{r}
+# Linear model with the best transformation from each based on EDA
+# RESULTS: performs worse than the model above
+lm_kurt2 <- lm(kurtosis ~ St_sqrt + Re + logistic_Fr, data = data)
+
+summary(lm_kurt2)
+par(mfrow = c(2,2))
+plot(lm_kurt2)
+```
+This model above doesn't have better R^2, but the coefficients are all statistically significant past the 5% level. The residuals are also less clsutered and the Q-Q plot is better with fewer high leverage points.
+
+## Linear Model with Interaction Terms
+```{r}
+# Interacting Re and logistic_Fr
+lm_kurt_int1 <- lm(kurtosis ~ St + Re * logistic_Fr, data = data)
+summary(lm_kurt_int1)
+par(mfrow = c(2,2))
+plot(lm_kurt_int1)
+```
+The interaction term slightly improves R^2, but less of the coefficients are statistically significant. The residuals also now have a clear quadratic shape with the Q-Q plot being less ideal and there being more points with a higher cook's distance.
+```{r}
+# Interacting St and Re
+# RESULTS: R^2 is higher than above, but several points with extremely high leverage
+summary(lm_skew_int2)
+par(mfrow = c(2,2))
+plot(lm_kurt_int2)
+
+# Interacting St and Fr
+# RESULTS: much lower R^2 and several points with extremely high leverage
+lm_kurt_int3 <- lm(kurtosis ~ Re + St * logistic_Fr, data = data)
+summary(lm_kurt_int3)
+par(mfrow = c(2,2))
+plot(lm_kurt_int3)
+
+# Interacting all three variables
+# RESULTS: few coefficeints are statistically significant and residuals aren't great
+lm_kurt_int4 <- lm(kurtosis ~ Re * St * logistic_Fr, data = data)
+summary(lm_kurt_int4)
+par(mfrow = c(2,2))
+plot(lm_kurt_int4)
 ```
 
+## Polynomial Models
+```{r}
+# Polynomials of degree 2 for St and Re
+# RESULTS: adjusted R^2 is similar to interaction model above but residual pattern and Q-Q is better
+# Still have some points with high leverage
+poly_kurt1 <- lm(kurtosis ~ poly(St, 2) + poly(Re, 2) + logistic_Fr, data = data)
+summary(poly_kurt1)
+par(mfrow = c(2,2))
+plot(poly_kurt1)
 
 
+# Polynomials of degree 3 for St, 2 for Re
+# RESULTS: adjusted R^2 is similar to interaction model above but residual pattern and Q-Q is better
+# Still have some points with high leverage
+poly_kurt2 <- lm(kurtosis ~ poly(St, 3) + poly(Re, 2) + logistic_Fr, data = data)
+summary(poly_kurt2)
+par(mfrow = c(2,2))
+plot(poly_kurt2)
+```
+## Transforming the Input Variables
+```{r}
+# Treating the Fr and Re as categorical
+lm_kurt_tr_inp1 <- lm(kurtosis ~ sqrt(St) + as.factor(Re) + 
+                    as.factor(logistic_Fr),
+                  data = data)
+summary(lm_kurt_tr_inp1)
+par(mfrow = c(2,2))
+plot(lm_kurt_tr_inp1)
+```
+The R^2 value is greatly improved and almost all coefficients are statistically significant. The residual plot also has less of a pattern, Q-Q plot is better, although all points tend to have a high cook's distance.
+
+## Transforming the Response Variable
+```{r}
+# Taking the square root of skewness
+lm_kurt_tr_resp1 <- lm(sqrt(kurtosis) ~ sqrt(St) + as.factor(Re) + 
+                    as.factor(logistic_Fr),
+                  data = data)
+summary(lm_kurt_tr_resp1)
+par(mfrow = c(2,2))
+plot(lm_kurt_tr_resp1)
+```
+The R^2 value is still high and almost all coefficients are statistically significant. Additionally, the residuals are slightly parabolic but the Q-Q plot is better despite most of the residuals having high leverage.
+
+## Ridge Regression
+
+```{r}
+
+set.seed(325)
+
+# Original ridge regression model
+
+# Prepare predictors once (same rationale as above)
+y <- data$kurtosis
+X <- model.matrix(kurtosis ~ St + Re + logistic_Fr, data = data)[, -1]
+
+nested_ridge <- function(X, y, K_outer = 5, K_inner = 5, seed = 325) {
+  set.seed(seed)
+  folds <- createFolds(y, k = K_outer, list = TRUE)
+  rmse_vec <- numeric(K_outer)
+  mae_vec  <- numeric(K_outer)
+  r2_vec   <- numeric(K_outer)
+
+  for (i in seq_len(K_outer)) {
+    test_idx <- folds[[i]]
+    train_idx <- setdiff(seq_len(length(y)), test_idx)
+
+    X_tr <- X[train_idx, , drop = FALSE]; y_tr <- y[train_idx]
+    X_te <- X[test_idx,  , drop = FALSE]; y_te <- y[test_idx]
+
+    # inner CV to select lambda using only training data
+    cv_inner <- cv.glmnet(X_tr, y_tr, alpha = 0, nfolds = K_inner)
+    lambda_star <- cv_inner$lambda.min
+
+    # fit on training set with chosen lambda
+    fit <- glmnet(X_tr, y_tr, alpha = 0, lambda = lambda_star)
+
+    preds <- as.numeric(predict(fit, newx = X_te, s = lambda_star))
+    rmse_vec[i] <- sqrt(mean((y_te - preds)^2))
+    mae_vec[i]  <- mean(abs(y_te - preds))
+    r2_vec[i]   <- 1 - sum((y_te - preds)^2) / sum((y_te - mean(y_tr))^2)
+  }
+
+  list(
+    RMSE_mean = mean(rmse_vec), RMSE_sd = sd(rmse_vec),
+    MAE_mean  = mean(mae_vec),
+    R2_mean   = mean(r2_vec)
+  )
+}
+
+res <- nested_ridge(X, y, K_outer = 5, K_inner = 5)
+res
+
+```
+The RMSE for this model is extremely high as well as the standard deviation. 
+
+```{r}
+set.seed(325)
+
+# Prepare predictors once (same rationale as above)
+y <- data$kurtosis
+X <- model.matrix(kurtosis ~ sqrt(St) + poly(Re, 2) + logistic_Fr, data = data)[, -1]
+
+
+nested_ridge <- function(X, y, K_outer = 5, K_inner = 5, seed = 325) {
+  set.seed(seed)
+  folds <- createFolds(y, k = K_outer, list = TRUE)
+  rmse_vec <- numeric(K_outer)
+  mae_vec  <- numeric(K_outer)
+  r2_vec   <- numeric(K_outer)
+
+  for (i in seq_len(K_outer)) {
+    test_idx <- folds[[i]]
+    train_idx <- setdiff(seq_len(length(y)), test_idx)
+
+    X_tr <- X[train_idx, , drop = FALSE]; y_tr <- y[train_idx]
+    X_te <- X[test_idx,  , drop = FALSE]; y_te <- y[test_idx]
+
+    # inner CV to select lambda using only training data
+    cv_inner <- cv.glmnet(X_tr, y_tr, alpha = 0, nfolds = K_inner)
+    lambda_star <- cv_inner$lambda.min
+
+    # fit on training set with chosen lambda
+    fit <- glmnet(X_tr, y_tr, alpha = 0, lambda = lambda_star)
+
+    preds <- as.numeric(predict(fit, newx = X_te, s = lambda_star))
+    rmse_vec[i] <- sqrt(mean((y_te - preds)^2))
+    mae_vec[i]  <- mean(abs(y_te - preds))
+    r2_vec[i]   <- 1 - sum((y_te - preds)^2) / sum((y_te - mean(y_tr))^2)
+  }
+
+  list(
+    RMSE_mean = mean(rmse_vec), RMSE_sd = sd(rmse_vec),
+    MAE_mean  = mean(mae_vec),
+    R2_mean   = mean(r2_vec)
+  )
+}
+
+res <- nested_ridge(X, y, K_outer = 5, K_inner = 5)
+res
+
+```
+
+Neither of the ridge regression models perform well -- both have high RMSE mean & SD with low R^2. 
+
+## Spline Model
+```{r}
+# Spline model with cross validation
+set.seed(123)
+small_data <- data |> 
+  select(St, Re, logistic_Fr, kurtosis)
+folds <- createFolds(data$kurtosis, k = 5)
+rmse_vec <- numeric(5)
+r2_vec <- numeric(5)
+
+for (i in 1:5) {
+  test_idx <- folds[[i]]
+  train <- small_data[-test_idx, ]
+  test  <- small_data[test_idx, ]
+
+  fit <- lm(kurtosis ~ bs(St, df = 5) + bs(Re, df = 4) + 
+              bs(logistic_Fr, df = 4), data = train)
+  preds <- predict(fit, newdata = test)
+
+  # Compute residuals and metrics
+  y_true <- test$kurtosis
+  n <- length(y_true)
+  p <- length(coef(fit)) - 1        # exclude intercept for p
+
+  rss <- sum((y_true - preds)^2)
+  tss <- sum((y_true - mean(y_true))^2)
+
+  r2 <- 1 - rss/tss
+  adj_r2 <- 1 - (1 - r2) * ((n - 1)/(n - p - 1))
+
+  # Store fold metrics
+  rmse_vec[i]  <- sqrt(mean((y_true - preds)^2))
+  r2_vec[i]    <- r2
+  adjr2_vec[i] <- adj_r2
+}
+
+# Cross-validated metrics
+mean_rmse  <- mean(rmse_vec)
+mean_r2    <- mean(r2_vec)
+mean_adj_r2 <- mean(adjr2_vec)
+sd_rmse <- sd(rmse_vec)
+
+c(CV_RMSE = mean_rmse,
+  CV_R2 = mean_r2,
+  CV_RMSE_sd = sd_rmse)
+```
+
+The spline model performs extremely poorly with very high mean RMSE and standard deviation RMSE. 
+
+# Takeaways for Kurtosis
+- The linear model with the transformations from the EDA does not have a very high R^2, but the model diagnostics are better than for the original skew models
+- Polynomial models don't improve the R^2 values as much but some of the diagnostic plots are better
+- Treating Fr and Re as categorical greatly improves the R^2 of the model and almost all coefficients are statistically significant. The residual plot also has less of a pattern, Q-Q plot is better, although all points tend to have a high cook's distance.
+- Transforming the response gave similar R^2 values to the categorical treatment of Fr and Re but the model diagnostics are not greatly improved.
+- The ridge regression models do not perform well for kurtosis. 
+- The spline models do not perform well either. 
 
