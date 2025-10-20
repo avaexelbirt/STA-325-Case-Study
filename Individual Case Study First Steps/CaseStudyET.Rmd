@@ -21,33 +21,64 @@ library(readr)
 library(reshape2)
 library(corrplot)
 
-train <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
+data <- read.csv("/home/guest/STA-325-Case-Study/Data/data-train.csv")
 test <- read.csv("/home/guest/STA-325-Case-Study/Data/data-test.csv")
 
 
 ```
 
+```{r}
+# convert raw moments to central moments
+library(moments)
+
+# raw moments from training data
+m1 <- data$R_moment_1   
+m2 <- data$R_moment_2
+m3 <- data$R_moment_3
+m4 <- data$R_moment_4
+
+# raw moments starting at 0
+raw_mat0 <- cbind(m0 = 1, m1 = m1, m2 = m2, m3 = m3, m4 = m4)
+
+# raw to central
+central_all <- t(apply(raw_mat0, 1, raw2central))
+
+output <- data.frame(
+  mean        = m1, # mean- first raw moment
+  mu2_central = central_all[, 3], # sd 
+  mu3_central = central_all[, 4],
+  mu4_central = central_all[, 5]
+)
+
+output$sd <- sqrt(output$mu2_central) # sd= sqrt(2nd central moment)
+output$skewness <- output$mu3_central / (output$sd^3) # 3rd cm / sd^3
+output$kurtosis <- output$mu4_central / (output$sd^4) #4th cm/ sd^4
+
+central_moments_combined <- cbind(data, output)
 
 ### Understanding the data
+
+```
+
 ```{r}
 
-str(train)
+str(data)
 
-summary(train)
+summary(data)
 
-colSums(is.na(train))
+colSums(is.na(data))
 
 
 ```
 
 
-### Distribution of Moments
+### Distribution of Moments RAW
 ```{r}
 moment_cols <- c("R_moment_1", "R_moment_2", "R_moment_3", "R_moment_4")
 
 for (col in moment_cols) {
   print(
-    ggplot(train, aes_string(x = col)) +
+    ggplot(data, aes_string(x = col)) +
       geom_histogram(bins = 30, fill = "#69b3a2", color = "white") +
       theme_minimal() +
       labs(title = paste("Distribution of", col))
@@ -55,49 +86,49 @@ for (col in moment_cols) {
 }
 ```
 
-### Transformations
+### Transformations RAW
 
 ```{r}
-ggplot(train, aes(x = log1p(R_moment_1))) + geom_histogram(fill = "#69b3a2") +
+ggplot(data, aes(x = log1p(R_moment_1))) + geom_histogram(fill = "#69b3a2") +
   labs(title = "R_moment_1_logged")
 
-ggplot(train, aes(x = log1p(R_moment_2))) + geom_histogram(fill = "#69b3a2") +
+ggplot(data, aes(x = log1p(R_moment_2))) + geom_histogram(fill = "#69b3a2") +
   labs(title = "R_moment_2_logged")
 
-ggplot(train, aes(x = log1p(R_moment_3))) + geom_histogram(fill = "#69b3a2") +
+ggplot(data, aes(x = log1p(R_moment_3))) + geom_histogram(fill = "#69b3a2") +
   labs(title = "R_moment_3_logged")
 
-ggplot(train, aes(x = log1p(R_moment_4))) + geom_histogram(fill = "#69b3a2") +
+ggplot(data, aes(x = log1p(R_moment_4))) + geom_histogram(fill = "#69b3a2") +
   labs(title = "R_moment_4_logged")
 
 ```
 Applying a log helps to stablize data across all moments (clearer/easier to read)
 
 
-### Correlation
+### Correlation RAW
 ```{r}
 
-num_vars_Re <- train[, c("Re", moment_cols)]
+num_vars_Re <- data[, c("Re", moment_cols)]
 cor_mat <- cor(num_vars_Re, use = "complete.obs")
 
 corrplot(cor_mat, method = "color", type = "upper", tl.cex = 0.8)
 
 
-num_vars_St <- train[, c("St", moment_cols)]
+num_vars_St <- data[, c("St", moment_cols)]
 cor_mat <- cor(num_vars_St, use = "complete.obs")
 
 corrplot(cor_mat, method = "color", type = "upper", tl.cex = 0.8)
 
-num_vars_Fr <- train[, c("Fr", moment_cols)]
+num_vars_Fr <- data[, c("Fr", moment_cols)]
 cor_mat <- cor(num_vars_Fr, use = "complete.obs")
 
 corrplot(cor_mat, method = "color", type = "upper", tl.cex = 0.8)
 ```
 
-### Group-Level Patterns (I think I should log the vars)
+### Group-Level Patterns (I think I should log the vars) RAW
 ```{r}
 
-train %>%
+data %>%
 group_by(St) %>%
 summarise(across(all_of(moment_cols),
 list(mean = mean, sd = sd),
@@ -114,10 +145,12 @@ x = "St", y = "Mean Moment")
 
 
 ```
+
+## VOID RAW
 ```{r}
 
 ## Fix
-m_logr1 <- lm(log1p(R_moment_1) ~ Re + St + Fr, data = train)
+m_logr1 <- lm(log1p(R_moment_1) ~ Re + St + Fr, data = data)
 
 
 summary(m_logr1)
@@ -152,3 +185,157 @@ ggplot(test, aes(x = R1_log, y = pred_m_logr1)) +
 
 ```
 
+
+```{r}
+data <- central_moments_combined |>
+  mutate(log_St = log(St), 
+         log_Re = log(Re),
+         St_2 = St**2,
+         Re_2 = Re**2,
+         Fr_2 = Fr**2,
+         St_sqrt = sqrt(St),
+         Re_sqrt = sqrt(Re),
+         logistic_Fr = 1/(1+exp(-Fr)))
+```
+
+
+### Focus on SKEW
+
+
+#### LINEAR
+```{r}
+
+linskew <- lm(R_moment_3 ~ St + Re + logistic_Fr, data = data)
+
+tidy(linskew)
+
+## Had to do log Fr otherwise it does not run
+```
+
+#### POLYNOMIAL
+```{r}
+
+polyskew <- lm(R_moment_3 ~ St + I(St^2) + Re + I(Re^2) + logistic_Fr + I(logistic_Fr^2),
+                 data = data)
+
+tidy(polyskew)
+```
+
+#### RIDGE
+```{r}
+# Convert predictors to matrix
+X <- model.matrix(R_moment_3 ~ St + Re + logistic_Fr, data = data)[, -1]
+y <-data$R_moment_3
+
+# Ridge model
+ridge_fit <- cv.glmnet(X, y, alpha = 0, standardize = FALSE)
+
+# Best lambda
+ridge_lambda <- ridge_fit$lambda.min
+
+ridskew <- glmnet(X, y, alpha = 0, lambda = ridge_lambda, standardize = FALSE)
+coef(ridskew)
+
+```
+
+#### LASSO
+
+```{r}
+# Lasso model
+lasso_fit1 <- cv.glmnet(X, y, alpha = 1, standardize = FALSE)
+lasso_lambda <- lasso_fit$lambda.min
+
+lasskew <- glmnet(X, y, alpha = 1, lambda = lasso_lambda, standardize = FALSE)
+coef(lasskew)
+
+```
+
+#### SPLINE
+```{r}
+# Using splines on the predictors
+splineskew <- lm(R_moment_3 ~ ns(St, df = 3) + ns(Re, df = 3) + ns(logistic_Fr, df = 3),
+                   data = data)
+
+tidy(splineskew)
+
+```
+
+### COMPARING SKEW MODELS
+```{r}
+AIC(polyskew, splineskew)
+# Cross-validation error for penalized models
+ridge_fit$cvm[which.min(ridge_fit$cvm)]
+lasso_fit$cvm[which.min(lasso_fit$cvm)]
+
+```
+
+
+
+### Focus on KURTOSIS
+
+#### LINEAR
+```{r}
+
+linkurt <- lm(R_moment_4 ~ St + Re + logistic_Fr, data = data)
+
+tidy(linkurt)
+
+## Had to do log Fr otherwise it does not run
+```
+
+#### POLYNOMIAL
+```{r}
+
+polykurt <- lm(R_moment_4 ~ St + I(St^2) + Re + I(Re^2) + logistic_Fr + I(logistic_Fr^2),
+                 data = data)
+
+tidy(polykurt)
+```
+
+#### RIDGE
+```{r}
+# Convert predictors to matrix
+W <- model.matrix(R_moment_4 ~ St + Re + logistic_Fr, data = data)[, -1]
+v <-data$R_moment_4
+
+# Ridge model
+ridge_fit2 <- cv.glmnet(W, v, alpha = 0, standardize = FALSE)
+
+# Best lambda
+ridge_lambda2 <- ridge_fit2$lambda.min
+
+ridkurt <- glmnet(W, v, alpha = 0, lambda = ridge_lambda2, standardize = FALSE)
+coef(ridkurt)
+
+```
+
+#### LASSO
+
+```{r}
+# Lasso model
+lasso_fit2 <- cv.glmnet(W, v, alpha = 1, standardize = FALSE)
+lasso_lambda2 <- lasso_fit2$lambda.min
+
+laskurt <- glmnet(W, v, alpha = 1, lambda = lasso_lambda2, standardize = FALSE)
+coef(laskurt)
+
+```
+
+#### SPLINE
+```{r}
+# Using splines on the predictors
+splinekurt <- lm(R_moment_4 ~ ns(St, df = 3) + ns(Re, df = 3) + ns(logistic_Fr, df = 3),
+                   data = data)
+
+tidy(splinekurt)
+
+```
+
+### COMPARING KURTOSIS MODELS
+```{r}
+AIC(polykurt, splinekurt)
+# Cross-validation error for penalized models
+ridge_fit2$cvm[which.min(ridge_fit2$cvm)]
+lasso_fit2$cvm[which.min(lasso_fit2$cvm)]
+
+```
