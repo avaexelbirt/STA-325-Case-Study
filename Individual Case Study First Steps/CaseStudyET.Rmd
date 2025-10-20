@@ -211,6 +211,8 @@ tidy(linskew)
 
 ## Had to do log Fr otherwise it does not run
 ```
+Typical lin model -- easy to interpret, probably not great for prediction
+
 
 #### POLYNOMIAL
 ```{r}
@@ -220,6 +222,9 @@ polyskew <- lm(R_moment_3 ~ St + I(St^2) + Re + I(Re^2) + logistic_Fr + I(logist
 
 tidy(polyskew)
 ```
+Polynomial model suggests strong nonlinearities -- specifically in logistic_Fr. Interpretation should focus on shape not magnitude (ie, directional data bc of correlation)
+
+
 
 #### RIDGE
 ```{r}
@@ -237,6 +242,9 @@ ridskew <- glmnet(X, y, alpha = 0, lambda = ridge_lambda, standardize = FALSE)
 coef(ridskew)
 
 ```
+Ridge helps show direction and shape don't use to make a correlation statement (not a one-to-one relationship)
+
+Re shows a negative association wheras St and Log_Fr are positive. Magnitudes are smaller suggesting strong multicollinearity & stabilizes estimates.
 
 #### LASSO
 
@@ -249,6 +257,11 @@ lasskew <- glmnet(X, y, alpha = 1, lambda = lasso_lambda, standardize = FALSE)
 coef(lasskew)
 
 ```
+predictors that went to 0 are not significant -- useful in the sense that we probably don't need them 
+
+
+Suggests that Re is the strongest predictor 
+
 
 #### SPLINE
 ```{r}
@@ -259,6 +272,15 @@ splineskew <- lm(R_moment_3 ~ ns(St, df = 3) + ns(Re, df = 3) + ns(logistic_Fr, 
 tidy(splineskew)
 
 ```
+use predict function across models with test data to see how different models are doing -- spline is not very interpretable;
+
+
+Re and Logistic-FR have significant nonlin impact whereas St's impact is likely localized
+
+
+
+These models reveal that Re is consistently strong, St is weak across the board, and log_Fr is strong in nonlin complex models
+
 
 ### COMPARING SKEW MODELS
 ```{r}
@@ -282,6 +304,7 @@ tidy(linkurt)
 
 ## Had to do log Fr otherwise it does not run
 ```
+Classic model read
 
 #### POLYNOMIAL
 ```{r}
@@ -291,6 +314,14 @@ polykurt <- lm(R_moment_4 ~ St + I(St^2) + Re + I(Re^2) + logistic_Fr + I(logist
 
 tidy(polykurt)
 ```
+St positive lin effect, but neg quad effect
+
+Re has the inverse
+
+Log_fr has a very large neg lin and very large quad pos
+
+log_fr dominates suggesting that it explains most of the variability
+
 
 #### RIDGE
 ```{r}
@@ -309,6 +340,11 @@ coef(ridkurt)
 
 ```
 
+Coefficients shrink, but not to 0; magnitudes are much smaller
+
+St and log_fr are okay, but nothing great. Re is negative and strong which adds to it being a core predictor
+
+
 #### LASSO
 
 ```{r}
@@ -321,6 +357,9 @@ coef(laskurt)
 
 ```
 
+Shrinks St and log_fr to 0 and Re remains negative revealing the most stable relationship with moment 4; most stable in noise
+
+
 #### SPLINE
 ```{r}
 # Using splines on the predictors
@@ -331,6 +370,16 @@ tidy(splinekurt)
 
 ```
 
+ns(Re, df = 3)2 & ns(logistic_Fr, df = 3)1	
+& ns(logistic_Fr, df = 3)2 are very largely negative which fits their broader trends as well
+
+Demonstrate that both predictors are key in a nonlinear lens
+
+
+
+Re is key across all models and should be included
+
+
 ### COMPARING KURTOSIS MODELS
 ```{r}
 AIC(polykurt, splinekurt)
@@ -339,3 +388,7 @@ ridge_fit2$cvm[which.min(ridge_fit2$cvm)]
 lasso_fit2$cvm[which.min(lasso_fit2$cvm)]
 
 ```
+comparing different models articulate and understand assumptions of each model -- write out model equation to understand what the prerogative is of each model; this should help you articulate why you're choosing one model over another; interpretability is almost more important than prediction
+
+
+Takeaways: we need a nonlinear model as there are clear deviations in the model performance once appropriately specified, but we must be able to interpret the model
