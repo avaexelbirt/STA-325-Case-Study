@@ -362,44 +362,54 @@ folds <- createFolds(data$mean, k = k_folds, list = TRUE)
 cv_results_mean <- data.frame(
   Model = c("Linear", "Interaction", "Polynomial", "Ridge", "Spline"),
   RMSE = rep(0, 5),
-  MAE = rep(0, 5),
-  R_squared = rep(0, 5)
+  R_squared = rep(0, 5),
+  Adj_R_squared = rep(0, 5)
 )
 
-calc_metrics <- function(actual, predicted) {
+calc_metrics <- function(actual, predicted, n, p) {
+  rss <- sum((actual - predicted)^2)
+  tss <- sum((actual - mean(actual))^2)
+  r2 <- 1 - rss / tss
+  adj_r2 <- 1 - (1 - r2) * ((n - 1) / (n - p - 1))
   rmse <- sqrt(mean((actual - predicted)^2))
-  mae <- mean(abs(actual - predicted))
-  r2 <- 1 - sum((actual - predicted)^2) / sum((actual - mean(actual))^2)
-  return(c(rmse, mae, r2))
+  return(c(rmse, r2, adj_r2))
 }
 
 for (model_idx in 1:5) {
   fold_rmse <- numeric(k_folds)
-  fold_mae <- numeric(k_folds)
   fold_r2 <- numeric(k_folds)
+  fold_adj_r2 <- numeric(k_folds)
   
   for (i in 1:k_folds) {
     test_indices <- folds[[i]]
     train_data <- data[-test_indices, ]
     test_data <- data[test_indices, ]
+    
+    # Default p = 0 (we’ll overwrite per model)
+    p <- 0
+    
     if (model_idx == 1) {
-      #linear
+      # Linear model
       fit <- lm(mean ~ sqrt(St) + Re + logistic_Fr, data = train_data)
       predictions <- predict(fit, newdata = test_data)
+      p <- length(coef(fit)) - 1
       
     } else if (model_idx == 2) {
-      #interact
+      # Interaction model
       fit <- lm(mean ~ sqrt(St) * Re * logistic_Fr, data = train_data)
       predictions <- predict(fit, newdata = test_data)
+      p <- length(coef(fit)) - 1
       
     } else if (model_idx == 3) {
-      #poly
+      # Polynomial model
       fit <- lm(mean ~ poly(sqrt(St), 2) + poly(Re, 2) + poly(logistic_Fr, 2) +
                   sqrt(St):Re + sqrt(St):logistic_Fr + Re:logistic_Fr, 
                 data = train_data)
       predictions <- predict(fit, newdata = test_data)
+      p <- length(coef(fit)) - 1
+      
     } else if (model_idx == 4) {
-      #ridge
+      # Ridge regression
       X_train <- model.matrix(mean ~ sqrt(St) * Re * logistic_Fr + 
                                 I(sqrt(St)^2) + I(Re^2) + I(logistic_Fr^2), 
                               data = train_data)[,-1]
@@ -411,31 +421,45 @@ for (model_idx in 1:5) {
       cv_ridge <- cv.glmnet(X_train, y_train, alpha = 0, nfolds = 5)
       fit <- glmnet(X_train, y_train, alpha = 0, lambda = cv_ridge$lambda.min)
       predictions <- predict(fit, newx = X_test, s = cv_ridge$lambda.min)
+      
+      p <- ncol(X_train)  # ridge uses all predictors (matrix columns)
+      
     } else if (model_idx == 5) {
-      #spline
+      # Spline model
       fit <- lm(mean ~ bs(sqrt(St), df = 4) + bs(Re, df = 3) + 
                   bs(logistic_Fr, df = 3) +
                   sqrt(St):Re + sqrt(St):logistic_Fr, 
                 data = train_data)
       predictions <- predict(fit, newdata = test_data)
+      p <- length(coef(fit)) - 1
     }
     
-
-    metrics <- calc_metrics(test_data$mean, predictions)
+    n <- nrow(test_data)
+    
+    # Safety check to avoid division by zero if p >= n - 1
+    if (p >= n - 1) {
+      adj_r2_value <- NA
+      metrics <- c(
+        sqrt(mean((test_data$mean - predictions)^2)),
+        1 - sum((test_data$mean - predictions)^2) / sum((test_data$mean - mean(test_data$mean))^2),
+        NA
+      )
+    } else {
+      metrics <- calc_metrics(test_data$mean, predictions, n, p)
+    }
+    
     fold_rmse[i] <- metrics[1]
-    fold_mae[i] <- metrics[2]
-    fold_r2[i] <- metrics[3]
+    fold_r2[i] <- metrics[2]
+    fold_adj_r2[i] <- metrics[3]
   }
 
   cv_results_mean$RMSE[model_idx] <- mean(fold_rmse)
-  cv_results_mean$MAE[model_idx] <- mean(fold_mae)
-  cv_results_mean$R_squared[model_idx] <- mean(fold_r2)
+  cv_results_mean$R_squared[model_idx] <- mean(fold_r2, na.rm = TRUE)
+  cv_results_mean$Adj_R_squared[model_idx] <- mean(fold_adj_r2, na.rm = TRUE)
 }
 
-#show results
-print("=== CROSS-VALIDATION RESULTS FOR MEAN MODELS ===")
 print(cv_results_mean)
-print(paste("Best model for Mean:", cv_results_mean$Model[which.min(cv_results_mean$RMSE)]))
+
 
 ggplot(cv_results_mean, aes(x = reorder(Model, RMSE), y = RMSE)) +
   geom_bar(stat = "identity", fill = "steelblue") +
