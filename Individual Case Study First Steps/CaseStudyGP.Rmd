@@ -17,6 +17,8 @@ library(glmnet)
 library(caret) # create k-folds
 library(splines)
 library(boot)
+library(olsrr)
+library(MASS)
 
 ## Loading the data
 data <- read.csv("data_transformed.csv")
@@ -27,47 +29,189 @@ data <- read.csv("data_transformed.csv")
 
 ### Skew
 
+```{r}
+# Boxcox transformation for skew
+boxcox(lm(data$skewness ~ 1))
+
+## Indicates that sqrt is the best transformation for skewness
+```
+
+
 #### Interpretable Model
 ```{r}
 # Building the more interpetable model
-m1 <- lm(sqrt(skewness) ~ sqrt(St) + poly(Re, 2) + logistic_Fr, data = data)
+m1 <- lm(sqrt(skewness) ~ sqrt(St) + poly(Re, 2) + logistic_Fr, 
+         data = data)
 skew_int <- summary(m1)
 
 # Getting model diagnostics for interpretable model
 skew_int$r.squared
 skew_int$adj.r.squared
+ols_step_all_possible(m1)
 ```
+
 ```{r}
 y <- sqrt(data$skewness)
 y_hat <- fitted(skew_int)
 resid <- residuals(skew_int)
 
 RMSE <- sqrt(mean(resid^2))
-MAE  <- mean(abs(resid))
 MSE  <- mean(resid^2)
 bias <- mean(resid)
 
-c(RMSE = RMSE, MAE = MAE, MSE = MSE, Bias = bias)
+c(RMSE = RMSE, MSE = MSE, Bias = bias)
 
 ```
 ```{r}
 par(mfrow = c(2, 2))
 plot(m1)
-
 ```
 
 
 ```{r}
+# Building a confidence band around the lm
+St_seq <- seq(min(data$St, na.rm = TRUE),
+              max(data$St, na.rm = TRUE), length.out = 100)
+Re_med <- seq(min(data$Re, na.rm = TRUE),
+              max(data$Re, na.rm = TRUE), length.out = 100)
+log_Fr_med <- seq(min(data$logistic_Fr, na.rm = TRUE),
+              max(data$logistic_Fr, na.rm = TRUE), length.out = 100)
+
+newdata <- data.frame(St = St_seq,
+                      Re = Re_med,
+                      logistic_Fr = log_Fr_med)
+
+# 3. Predict fitted means + 95% confidence interval
+pred_conf <- predict(m1, newdata, interval = "confidence")
+
+# Combine for plotting
+plot_df <- cbind(newdata, pred_conf)
+
+
+# St plot
+ggplot(plot_df, aes(x = St, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
+  geom_line(aes(y = upr), linetype = "dashed", color = "black") + 
+  labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
+       x = "St", y = "Predicted sqrt(skewness)") +
+  theme_minimal()
+
+# Re plot
+ggplot(plot_df, aes(x = Re, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
+  geom_line(aes(y = upr), linetype = "dashed", color = "black") +
+  geom_line(data = data, aes(x = Re, y = sqrt(skewness), color = factor(Re)),
+           size = 2.5, alpha = 0.8) + 
+  labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
+       x = "Re", y = "Predicted sqrt(skewness)") +
+  theme_minimal()
+
+# Logistic_Fr plot
+ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
+  geom_line(aes(y = upr), linetype = "dashed", color = "black") +
+  geom_line(data = data, aes(x = logistic_Fr, y = sqrt(skewness), 
+                             color = factor(logistic_Fr)),
+           size = 2.5, alpha = 0.8) + 
+  labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
+       x = "Logistic Fr", y = "Predicted sqrt(skewness)") +
+  theme_minimal()
+```
+
+#### Predictive Model
+```{r}
+
+# Building the ridge model
+y <- data$skewness
+X <- model.matrix(~ poly(sqrt(St), 2) + Re + logistic_Fr, data = data)[, -1]  
+
+
+ridge_fit <- cv.glmnet(X, y, alpha = 0, nfolds = 5)
+
+# Getting model diagnostics
+# Predicted values
+y_pred <- predict(ridge_fit, newx = X, s = "lambda.min")
+residuals <- y - y_pred
+
+# Residual plot
+plot(y_pred, residuals, 
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residual Plot for Ridge Regression")
+abline(h = 0, col = "red", lwd = 2)
+
+# Adding a nonlinear trend to the residuals
+ord <- order(y_pred)
+lo <- loess(residuals ~ y_pred)
+lines(y_pred[ord], predict(lo)[ord], col = "blue", lwd = 2, lty = 2)  
+
+# Calculating R^2 and adjusted R^2
+# Calculate R^2
+SSE <- sum((y - y_pred)^2)
+SST <- sum((y - mean(y))^2)
+R2 <- 1 - SSE/SST
+
+# Adjusted R^2
+n <- length(y)
+p <- ncol(X)  # number of predictors
+adj_R2 <- 1 - (1 - R2) * (n - 1) / (n - p - 1)
+
+print(R2)
+print(adj_R2)
+
+
+```
+
+```{r}
 set.seed(325)
 
-# Prepare predictors once (same rationale as above)
-y <- data$skewness
-X <- model.matrix(sqrt(skewness) ~ poly(sqrt(St), 2) + Re + sqrt(logistic_Fr) +
-                    sqrt(St):Re, data = data)[, -1]
-#X <- model.matrix(skewness ~ sqrt(St) + poly(Re, 2) + logistic_Fr, data = data)[, -1]
+X <- model.matrix(~ poly(sqrt(St), 2) + Re + logistic_Fr, data = data)[, -1]  # p columns, no intercept
+n <- nrow(X)
+k <- 10
 
-# Using the ridge model
-ridge_fit <- cv.glmnet(X, y, alpha = 0, nfolds = 10)
+# create folds (rough random splitting)
+fold_ids <- sample(rep(1:k, length.out = n))
+
+# placeholders
+y_true_all <- numeric(0)
+y_pred_all <- numeric(0)
+
+# loop folds
+for (fold in 1:k) {
+  test_idx <- which(fold_ids == fold)
+  train_idx <- setdiff(seq_len(n), test_idx)
+
+  X_train <- X[train_idx, , drop = FALSE]
+  y_train <- y[train_idx]
+
+  X_test <- X[test_idx, , drop = FALSE]
+  y_test <- y[test_idx]
+
+  # 1) pick lambda on train data (cv inside train)
+  cv_fit <- cv.glmnet(X_train, y_train, alpha = 0, nfolds = 5)   # inner CV
+  lambda_star <- cv_fit$lambda.min
+
+  # 2) predict on held-out test fold
+  preds <- as.numeric(predict(cv_fit, newx = X_test, s = "lambda.min"))
+
+  # collect
+  y_true_all <- c(y_true_all, y_test)
+  y_pred_all <- c(y_pred_all, preds)
+}
+
+# Global metrics across all held-out predictions
+SSE <- sum((y_true_all - y_pred_all)^2)
+SST <- sum((y_true_all - mean(y_true_all))^2)
+R2_overall <- 1 - SSE / SST
+
+RMSE <- sqrt(mean((y_true_all - y_pred_all)^2))
+
+metrics <- list(R2 = R2_overall, RMSE = RMSE, SD = sd(resid))
+metrics
+
 ```
 
 ### Model Diagnostics
