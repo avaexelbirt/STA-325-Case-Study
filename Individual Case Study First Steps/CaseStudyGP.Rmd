@@ -16,11 +16,171 @@ library(moments)
 library(glmnet)
 library(caret) # create k-folds
 library(splines)
+library(boot)
 
 ## Loading the data
 data <- read.csv("data_transformed.csv")
 
 ```
+
+## Building the Final Models
+
+### Skew
+
+#### Interpretable Model
+```{r}
+# Building the more interpetable model
+m1 <- lm(sqrt(skewness) ~ sqrt(St) + poly(Re, 2) + logistic_Fr, data = data)
+skew_int <- summary(m1)
+
+# Getting model diagnostics for interpretable model
+skew_int$r.squared
+skew_int$adj.r.squared
+```
+```{r}
+y <- sqrt(data$skewness)
+y_hat <- fitted(skew_int)
+resid <- residuals(skew_int)
+
+RMSE <- sqrt(mean(resid^2))
+MAE  <- mean(abs(resid))
+MSE  <- mean(resid^2)
+bias <- mean(resid)
+
+c(RMSE = RMSE, MAE = MAE, MSE = MSE, Bias = bias)
+
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(m1)
+
+```
+
+
+```{r}
+set.seed(325)
+
+# Prepare predictors once (same rationale as above)
+y <- data$skewness
+X <- model.matrix(sqrt(skewness) ~ poly(sqrt(St), 2) + Re + sqrt(logistic_Fr) +
+                    sqrt(St):Re, data = data)[, -1]
+#X <- model.matrix(skewness ~ sqrt(St) + poly(Re, 2) + logistic_Fr, data = data)[, -1]
+
+# Using the ridge model
+ridge_fit <- cv.glmnet(X, y, alpha = 0, nfolds = 10)
+```
+
+### Model Diagnostics
+```{r}
+# Residual plot
+# Predicted values
+y_pred <- predict(ridge_fit, newx = X, s = "lambda.min")
+residuals <- y - y_pred
+
+# Residual plot
+plot(y_pred, residuals, 
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residual Plot for Ridge Regression")
+abline(h = 0, col = "red", lwd = 2)
+
+# Adding a nonlinear trend to the residuals
+ord <- order(y_pred)
+lo <- loess(residuals ~ y_pred)
+lines(y_pred[ord], predict(lo)[ord], col = "blue", lwd = 2, lty = 2)  
+```
+
+```{r}
+# Calculating R^2 and adjusted R^2
+# Calculate R^2
+SSE <- sum((y - y_pred)^2)
+SST <- sum((y - mean(y))^2)
+R2 <- 1 - SSE/SST
+
+# Adjusted R^2
+n <- length(y)
+p <- ncol(X)  # number of predictors
+adj_R2 <- 1 - (1 - R2) * (n - 1) / (n - p - 1)
+
+print(R2)
+print(adj_R2)
+```
+
+
+```{r}
+set.seed(325)
+
+# Prepare predictors once (same rationale as above)
+y <- data$skewness
+X <- model.matrix(sqrt(skewness) ~ sqrt(St) + Re + logistic_Fr, 
+                  data = data)[, -1]
+
+# Using the ridge model
+ridge_fit <- cv.glmnet(X, y, alpha = 0, nfolds = 10)
+
+# Predicted values
+y_pred <- predict(ridge_fit, newx = X, s = "lambda.min")
+residuals <- y - y_pred
+
+
+# Residual plot
+plot(y_pred, residuals, 
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residual Plot for Ridge Regression")
+abline(h = 0, col = "red", lwd = 2)
+
+# Adding a nonlinear trend to the residuals
+ord <- order(y_pred)
+lo <- loess(residuals ~ y_pred)
+lines(y_pred[ord], predict(lo)[ord], col = "blue", lwd = 2, lty = 2)  
+
+
+
+```
+
+
+```{r}
+# Testing the ridge model with CV
+nested_ridge <- function(X, y, K_outer = 5, K_inner = 5, seed = 325) {
+  set.seed(seed)
+  folds <- createFolds(y, k = K_outer, list = TRUE)
+  rmse_vec <- numeric(K_outer)
+  mae_vec  <- numeric(K_outer)
+  r2_vec   <- numeric(K_outer)
+
+  for (i in seq_len(K_outer)) {
+    test_idx <- folds[[i]]
+    train_idx <- setdiff(seq_len(length(y)), test_idx)
+
+    X_tr <- X[train_idx, , drop = FALSE]; y_tr <- y[train_idx]
+    X_te <- X[test_idx,  , drop = FALSE]; y_te <- y[test_idx]
+
+    # inner CV to select lambda using only training data
+    cv_inner <- cv.glmnet(X_tr, y_tr, alpha = 0, nfolds = K_inner)
+    lambda_star <- cv_inner$lambda.min
+
+    # fit on training set with chosen lambda
+    fit <- glmnet(X_tr, y_tr, alpha = 0, lambda = lambda_star)
+
+    preds <- as.numeric(predict(fit, newx = X_te, s = lambda_star))
+    rmse_vec[i] <- sqrt(mean((y_te - preds)^2))
+    mae_vec[i]  <- mean(abs(y_te - preds))
+    r2_vec[i]   <- 1 - sum((y_te - preds)^2) / sum((y_te - mean(y_tr))^2)
+  }
+
+  list(
+    RMSE_mean = mean(rmse_vec), RMSE_sd = sd(rmse_vec),
+    MAE_mean  = mean(mae_vec),
+    R2_mean   = mean(r2_vec)
+  )
+}
+
+res <- nested_ridge(X, y, K_outer = 5, K_inner = 5)
+res
+```
+
+
 
 ## EDA for Summary Statistics
 
