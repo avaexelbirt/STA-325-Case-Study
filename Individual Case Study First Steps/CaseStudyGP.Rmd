@@ -14,7 +14,7 @@ library(ggplot2)
 # install.packages(moments)
 library(moments)
 library(glmnet)
-library(carets) # create k-folds
+library(caret) # create k-folds
 library(splines)
 
 ## Loading the data
@@ -161,11 +161,10 @@ The model diagnostic plots raise a lot of concerns about the fit of the linear m
 # Linear model with the best transformation from each based on EDA
 # RESULTS: performs worse than the model above
 lm_skew2 <- lm(skewness ~ St_sqrt + Re + logistic_Fr, data = data)
-'''
-summary(lm_skew2)
-par(mfrow = c(2,2))
-plot(lm_skew2)
-'''
+#summary(lm_skew2)
+#par(mfrow = c(2,2))
+#plot(lm_skew2)
+
 ```
 
 
@@ -353,7 +352,7 @@ small_data <- data |>
   select(St, Re, logistic_Fr, skewness)
 folds <- createFolds(data$skewness, k = 5)
 rmse_vec <- numeric(5)
-r2_vec <- numeric(5)
+adjr2_vec <- numeric(5)
 
 for (i in 1:5) {
   test_idx <- folds[[i]]
@@ -467,6 +466,8 @@ poly_kurt1 <- lm(kurtosis ~ poly(St, 2) + poly(Re, 2) + logistic_Fr, data = data
 summary(poly_kurt1)
 par(mfrow = c(2,2))
 plot(poly_kurt1)
+
+# NEED to run this through CV
 
 
 # Polynomials of degree 3 for St, 2 for Re
