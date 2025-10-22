@@ -1,0 +1,17 @@
+---
+title: "STA 325 Case Study"
+author: "Abby L., Ava E., Ella T., Grady P. Laura C."
+output: pdf_document
+---
+
+# Introduction
+
+### Exploratory Data Analysis
+
+# Methodology
+
+
+# Results
+
+
+# Conclusion
