@@ -255,6 +255,81 @@ cat("10-fold CV MSE:", mean(fold_errors), "±", sd(fold_errors), "\n")
 
 ```
 
+### Kurtosis
+
+```{r}
+# Boxcox transformation for skew
+boxcox(lm(data$kurtosis ~ 1))
+
+## Indicates that kurtosis is better off not being transformed
+```
+
+```{r}
+# Building the more interpetable model
+kurt_m1 <- lm(kurtosis ~ 
+                sqrt(St) + as.factor(Re) + as.factor(logistic_Fr), 
+         data = data)
+kurt_int <- summary(kurt_m1)
+kurt_int
+```
+
+```{r}
+# Polynomials of degree 2 for St and Re
+# RESULTS: adjusted R^2 is similar to interaction model above but residual pattern and Q-Q is better
+# Still have some points with high leverage
+poly_kurt1 <- lm(kurtosis ~ poly(St, 2) + poly(Re, 2) + logistic_Fr, data = data)
+summary(poly_kurt1)
+par(mfrow = c(2,2))
+plot(poly_kurt1)
+
+# NEED to run this through CV
+
+
+# Polynomials of degree 3 for St, 2 for Re
+# RESULTS: adjusted R^2 is similar to interaction model above but residual pattern and Q-Q is better
+# Still have some points with high leverage
+poly_kurt2 <- lm(kurtosis ~ poly(sqrt(St), 3) + poly(Re, 2) + poly(logistic_Fr, 2), 
+                 data = data)
+kurt_m <- summary(poly_kurt2)
+par(mfrow = c(2,2))
+plot(poly_kurt2)
+```
+
+```{r}
+# Model diagnostics
+# Getting the model diagnostics for interpretable model
+cat("R²:", kurt_m$r.squared, "\n")
+cat("Adjusted R²:", kurt_m$adj.r.squared, "\n")
+cat("AIC:", AIC(poly_kurt2), "\n")
+cat("BIC:", BIC(poly_kurt2), "\n")
+
+# Determining the RMSE
+y <- sqrt(data$kurtosis)
+y_hat <- fitted(poly_kurt2)
+resid <- residuals(poly_kurt2)
+
+RMSE <- sqrt(mean(resid^2))
+MSE  <- mean(resid^2)
+bias <- mean(resid)
+
+c(RMSE = RMSE, MSE = MSE, Bias = bias)
+
+# Finding the Cp
+n <- length(poly_kurt2$fitted.values)
+p <- length(coef(poly_kurt2))       # includes intercept
+SSE <- sum(resid(poly_kurt2)^2)
+sigma2 <- summary(poly_kurt2)$sigma^2
+
+Cp <- SSE / sigma2 - n + 2 * p
+Cp
+
+cat("Mallows' Cp:", Cp, "\n")
+
+# Printing the anova test
+anova(poly_kurt2)
+```
+
+
 ### Model Diagnostics
 ```{r}
 # Residual plot
