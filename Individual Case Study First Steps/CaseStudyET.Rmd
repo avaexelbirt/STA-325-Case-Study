@@ -8,8 +8,8 @@ This is what I came up with for our first steps!
 ### Load Data + Libraries
 ```{r}
 
-library(tidyverse)
-library(tidymodels)
+library(summaryverse)
+library(summarymodels)
 library(dplyr)
 library(broom)
 library(car)
@@ -207,7 +207,7 @@ data <- central_moments_combined |>
 
 linskew <- lm(R_moment_3 ~ St + Re + logistic_Fr, data = data)
 
-tidy(linskew)
+summary(linskew)
 
 ## Had to do log Fr otherwise it does not run
 ```
@@ -220,7 +220,7 @@ Typical lin model -- easy to interpret, probably not great for prediction
 polyskew <- lm(R_moment_3 ~ St + I(St^2) + Re + I(Re^2) + logistic_Fr + I(logistic_Fr^2),
                  data = data)
 
-tidy(polyskew)
+summary(polyskew)
 ```
 Polynomial model suggests strong nonlinearities -- specifically in logistic_Fr. Interpretation should focus on shape not magnitude (ie, directional data bc of correlation)
 
@@ -269,7 +269,7 @@ Suggests that Re is the strongest predictor
 splineskew <- lm(R_moment_3 ~ ns(St, df = 3) + ns(Re, df = 3) + ns(logistic_Fr, df = 3),
                    data = data)
 
-tidy(splineskew)
+summary(splineskew)
 
 ```
 use predict function across models with test data to see how different models are doing -- spline is not very interpretable;
@@ -300,7 +300,7 @@ lasso_fit$cvm[which.min(lasso_fit$cvm)]
 
 linkurt <- lm(R_moment_4 ~ St + Re + logistic_Fr, data = data)
 
-tidy(linkurt)
+summary(linkurt)
 
 ## Had to do log Fr otherwise it does not run
 ```
@@ -312,7 +312,7 @@ Classic model read
 polykurt <- lm(R_moment_4 ~ St + I(St^2) + Re + I(Re^2) + logistic_Fr + I(logistic_Fr^2),
                  data = data)
 
-tidy(polykurt)
+summary(polykurt)
 ```
 St positive lin effect, but neg quad effect
 
@@ -366,7 +366,7 @@ Shrinks St and log_fr to 0 and Re remains negative revealing the most stable rel
 splinekurt <- lm(R_moment_4 ~ ns(St, df = 3) + ns(Re, df = 3) + ns(logistic_Fr, df = 3),
                    data = data)
 
-tidy(splinekurt)
+summary(splinekurt)
 
 ```
 
