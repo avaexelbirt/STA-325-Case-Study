@@ -40,17 +40,20 @@ boxcox(lm(data$skewness ~ 1))
 #### Interpretable Model
 ```{r}
 # Building the more interpetable model
-m1 <- lm(sqrt(skewness) ~ sqrt(St) + poly(Re, 2) + logistic_Fr, 
+m1 <- lm(sqrt(skewness) ~ sqrt(St) + Re + logistic_Fr, 
          data = data)
 skew_int <- summary(m1)
 
-# Getting model diagnostics for interpretable model
-skew_int$r.squared
-skew_int$adj.r.squared
-ols_step_all_possible(m1)
 ```
 
 ```{r}
+# Getting the model diagnostics for interpretable model
+cat("R²:", skew_int$r.squared, "\n")
+cat("Adjusted R²:", skew_int$adj.r.squared, "\n")
+cat("AIC:", AIC(m1), "\n")
+cat("BIC:", BIC(m1), "\n")
+
+# Determining the RMSE
 y <- sqrt(data$skewness)
 y_hat <- fitted(skew_int)
 resid <- residuals(skew_int)
@@ -61,6 +64,21 @@ bias <- mean(resid)
 
 c(RMSE = RMSE, MSE = MSE, Bias = bias)
 
+# Finding the Cp
+n <- length(m1$fitted.values)
+p <- length(coef(m1))       # includes intercept
+SSE <- sum(resid(m1)^2)
+sigma2 <- summary(m1)$sigma^2
+
+Cp <- SSE / sigma2 - n + 2 * p
+Cp
+
+cat("Mallows' Cp:", Cp, "\n")
+
+# Printing the anova test
+anova(m1)
+
+
 ```
 ```{r}
 par(mfrow = c(2, 2))
@@ -70,6 +88,8 @@ plot(m1)
 
 ```{r}
 # Building a confidence band around the lm
+
+# Creating the sequence to make the variables continuous
 St_seq <- seq(min(data$St, na.rm = TRUE),
               max(data$St, na.rm = TRUE), length.out = 100)
 Re_med <- seq(min(data$Re, na.rm = TRUE),
@@ -77,17 +97,18 @@ Re_med <- seq(min(data$Re, na.rm = TRUE),
 log_Fr_med <- seq(min(data$logistic_Fr, na.rm = TRUE),
               max(data$logistic_Fr, na.rm = TRUE), length.out = 100)
 
+# New dataframe with the continuous values
 newdata <- data.frame(St = St_seq,
                       Re = Re_med,
                       logistic_Fr = log_Fr_med)
 
-# 3. Predict fitted means + 95% confidence interval
+# Predict fitted means
 pred_conf <- predict(m1, newdata, interval = "confidence")
 
 # Combine for plotting
 plot_df <- cbind(newdata, pred_conf)
 
-
+## Residual plots with confidence intervals
 # St plot
 ggplot(plot_df, aes(x = St, y = fit)) +
   geom_line(color = "blue", size = 1) +
@@ -102,8 +123,6 @@ ggplot(plot_df, aes(x = Re, y = fit)) +
   geom_line(color = "blue", size = 1) +
   geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
   geom_line(aes(y = upr), linetype = "dashed", color = "black") +
-  geom_line(data = data, aes(x = Re, y = sqrt(skewness), color = factor(Re)),
-           size = 2.5, alpha = 0.8) + 
   labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
        x = "Re", y = "Predicted sqrt(skewness)") +
   theme_minimal()
@@ -113,9 +132,6 @@ ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
   geom_line(color = "blue", size = 1) +
   geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
   geom_line(aes(y = upr), linetype = "dashed", color = "black") +
-  geom_line(data = data, aes(x = logistic_Fr, y = sqrt(skewness), 
-                             color = factor(logistic_Fr)),
-           size = 2.5, alpha = 0.8) + 
   labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
        x = "Logistic Fr", y = "Predicted sqrt(skewness)") +
   theme_minimal()
@@ -123,15 +139,18 @@ ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
 
 #### Predictive Model
 ```{r}
-
-# Building the ridge model
+# Basic ridge model
 y <- data$skewness
-X <- model.matrix(~ poly(sqrt(St), 2) + Re + logistic_Fr, data = data)[, -1]  
+X <- model.matrix(sqrt(skewness) ~ sqrt(St) + Re + logistic_Fr, 
+         data = data)[, -1]  
 
-
+# Fitting the ridge model
 ridge_fit <- cv.glmnet(X, y, alpha = 0, nfolds = 5)
+```
 
-# Getting model diagnostics
+
+```{r}
+# Building the residual plot
 # Predicted values
 y_pred <- predict(ridge_fit, newx = X, s = "lambda.min")
 residuals <- y - y_pred
@@ -141,76 +160,80 @@ plot(y_pred, residuals,
      xlab = "Fitted Values",
      ylab = "Residuals",
      main = "Residual Plot for Ridge Regression")
-abline(h = 0, col = "red", lwd = 2)
+abline(h = 0, col = "black", lwd = 2)
 
 # Adding a nonlinear trend to the residuals
 ord <- order(y_pred)
 lo <- loess(residuals ~ y_pred)
-lines(y_pred[ord], predict(lo)[ord], col = "blue", lwd = 2, lty = 2)  
-
-# Calculating R^2 and adjusted R^2
-# Calculate R^2
-SSE <- sum((y - y_pred)^2)
-SST <- sum((y - mean(y))^2)
-R2 <- 1 - SSE/SST
-
-# Adjusted R^2
-n <- length(y)
-p <- ncol(X)  # number of predictors
-adj_R2 <- 1 - (1 - R2) * (n - 1) / (n - p - 1)
-
-print(R2)
-print(adj_R2)
-
-
+lines(y_pred[ord], predict(lo)[ord], col = "blue", lwd = 2, lty = 2)
 ```
 
+
+
 ```{r}
+# Checking for model overfitting
 set.seed(325)
 
-X <- model.matrix(~ poly(sqrt(St), 2) + Re + logistic_Fr, data = data)[, -1]  # p columns, no intercept
+y_ridge <- sqrt(data$skewness)
+X_ridge <- model.matrix(~ sqrt(St) + Re + logistic_Fr, data = data)[, -1]  
 n <- nrow(X)
 k <- 10
 
-# create folds (rough random splitting)
+# Create folds (rough random splitting)
 fold_ids <- sample(rep(1:k, length.out = n))
 
-# placeholders
+# Initializing variables
 y_true_all <- numeric(0)
 y_pred_all <- numeric(0)
+fold_errors <- numeric(0)
 
-# loop folds
+# Loop folds
 for (fold in 1:k) {
   test_idx <- which(fold_ids == fold)
   train_idx <- setdiff(seq_len(n), test_idx)
 
-  X_train <- X[train_idx, , drop = FALSE]
-  y_train <- y[train_idx]
+  # Splitting into train and test data sets
+  X_train <- X_ridge[train_idx, , drop = FALSE]
+  y_train <- y_ridge[train_idx]
 
-  X_test <- X[test_idx, , drop = FALSE]
-  y_test <- y[test_idx]
+  X_test <- X_ridge[test_idx, , drop = FALSE]
+  y_test <- y_ridge[test_idx]
 
-  # 1) pick lambda on train data (cv inside train)
-  cv_fit <- cv.glmnet(X_train, y_train, alpha = 0, nfolds = 5)   # inner CV
+  # Fit the new models
+  cv_fit <- cv.glmnet(X_train, y_train, alpha = 0, nfolds = 5)   
   lambda_star <- cv_fit$lambda.min
 
-  # 2) predict on held-out test fold
+  # Making prediction on test set
   preds <- as.numeric(predict(cv_fit, newx = X_test, s = "lambda.min"))
 
-  # collect
+  # Collecting predictions results
   y_true_all <- c(y_true_all, y_test)
   y_pred_all <- c(y_pred_all, preds)
+  
+  # Individiual cv errors
+  fold_errors[fold] <- mean((y_test - preds)^2)
 }
 
-# Global metrics across all held-out predictions
+## Model diagnostics
+
+# R^2
 SSE <- sum((y_true_all - y_pred_all)^2)
 SST <- sum((y_true_all - mean(y_true_all))^2)
 R2_overall <- 1 - SSE / SST
 
-RMSE <- sqrt(mean((y_true_all - y_pred_all)^2))
+# RMSE
+resid_cv <- y_true_all - y_pred_all
+RMSE <- sqrt(mean((resid_cv)^2))
 
-metrics <- list(R2 = R2_overall, RMSE = RMSE, SD = sd(resid))
+# Average CV MSE
+mse_cv <- mean(fold_errors)
+cv_sd <- sd(fold_errors)
+
+metrics <- list(R2 = R2_overall, RMSE = RMSE, 
+                SD = sd(resid))
 metrics
+cat("10-fold CV MSE:", mean(fold_errors), "±", sd(fold_errors), "\n")
+
 
 ```
 
