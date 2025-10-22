@@ -16,6 +16,9 @@ library(moments)
 library(glmnet)  
 library(splines) 
 library(caret)
+library(boot)
+library(olsrr)
+library(MASS)
 
 ## Loading the data
 data_csv <- read.csv("Data/data-train.csv")
@@ -316,12 +319,8 @@ The three distinct distributions from the transformation could relate to the pot
 
 -   Kurtosis: Right skewed and bimodal – log(kurtosis) has three distinct distributions which could connect to the categorical nature of Fr and Re with specific cloud types.
 
+# Modeling Mean
 
-
-
-
-
-## Modeling Mean
 To predict the mean particle cluster volume, we fit a polynomial regression model on the log-transformed response. The log transformation was necessary because without it, the residuals showed clear patterns and heteroscedasticity. After transformation, the residuals appear to be randomly scattered around zero with constant variance. The log transformation also addressed the right-skewed distribution of mean cluster volumes in the raw data.
 
 ```{r}
@@ -337,6 +336,7 @@ model_mean_poly <- lm(log(mean) ~ poly(sqrt(St), 2) +
 
 summary(model_mean_poly)           
 ```
+
 The final model includes second-degree polynomial terms for all three predictors (√St, Re, and the logistic-transformed Fr) along with three two-way interactions: √St:Re, √St:logistic_Fr, and Re:logistic_Fr. This model achieved great fit, with an adjusted R² of 0.9978, meaning it explains over 99% of the variation in log(mean) cluster volume. The model's RMSE of 0.098 on the log scale translates to predictions that are typically within about 10% of the true mean cluster volume when back-transformed.
 
 ```{r}
@@ -362,7 +362,8 @@ plot(fitted(model_mean_poly), resid(model_mean_poly),
      pch = 19, col = "steelblue")
 abline(h = 0, col = "red", lwd = 2)
 ```
-The ANOVA table reveals which predictors contribute most substantially to explaining mean cluster volume. The results show that Reynolds number has by far the largest effect (Sum of Squares = 431.68), followed by Stokes number (SS = 7.53), and then Froude number (SS = 0.19). All three interaction terms were statistically significant (p < 0.05), with the Re:logistic_Fr interaction contributing the most (SS = 0.48, p < 0.001). The significant √St:logistic_Fr interaction (p = 0.001) and marginally significant √St:Re interaction (p = 0.030) suggest that the effects of particle inertia (St) on mean cluster size depend on both gravitational and turbulence conditions.
+
+The ANOVA table reveals which predictors contribute most substantially to explaining mean cluster volume. The results show that Reynolds number has by far the largest effect (Sum of Squares = 431.68), followed by Stokes number (SS = 7.53), and then Froude number (SS = 0.19). All three interaction terms were statistically significant (p \< 0.05), with the Re:logistic_Fr interaction contributing the most (SS = 0.48, p \< 0.001). The significant √St:logistic_Fr interaction (p = 0.001) and marginally significant √St:Re interaction (p = 0.030) suggest that the effects of particle inertia (St) on mean cluster size depend on both gravitational and turbulence conditions.
 
 ```{r}
 set.seed(325)
@@ -379,10 +380,11 @@ cv_model <- train(
 
 print(cv_model)
 ```
+
 To assess whether this complex model overfits the data, we performed 5-fold cross-validation, averaging the RMSE across folds to estimate out-of-sample prediction error. The cross-validated RMSE was 0.118, only slightly higher than the training RMSE of 0.098, and the CV R² (0.9974) remained nearly identical to the training R² (0.9978). This close agreement between training and validation performance indicates that the model generalizes well to unseen data and does not appear to overfit the data despite its polynomial and interaction terms.
 
-
 Original version of predict without CI
+
 ```{r}
 pred_log_mean <- predict(model_mean_poly, newdata = data_test)
 output <- data.frame(data_test, pred_log_mean = pred_log_mean)
@@ -391,9 +393,8 @@ write.csv(output, "Data/pred-mean.csv", row.names = FALSE)
 
 Overall, from fitting the mean with a polynomial model, we see that Reynolds number shows a strong negative linear effect and positive quadratic effect, indicating that mean cluster volume initially decreases sharply with increasing turbulence intensity, then levels off at higher Re values. The Stokes number exhibits a similar but weaker pattern—cluster volumes first increase then decrease with particle inertia. The Froude number's negative linear and positive quadratic effects suggest that gravitational acceleration initially reduces clustering but this effect diminishes at extreme gravity levels. The significant Re:Fr interaction indicates that gravity's effect on clustering becomes stronger in more turbulent flows, which makes physical sense as turbulence and gravity compete in determining particle settling behavior. Overall, we found that Reynolds number (turbulence intensity) is by far the dominant factor controlling mean cluster size, but its effect depends significantly on gravitational conditions, specifically gravity's impact on clustering strengthens in more turbulent flows. This interaction means that predicting particle behavior requires considering both turbulence and gravity together, rather than treating them as independent effects.
 
+[BELOW DOESNT RUN NEED HELP] Now we will predict the test set mean values with 95% confidence intervals and save it to a new file.
 
-[BELOW DOESNT RUN NEED HELP]
-Now we will predict the test set mean values with 95% confidence intervals and save it to a new file. 
 ```{r}
 #vary St, hold Re & logistic_Fr at means
 Re_mean <- mean(data_finite$Re, na.rm = TRUE)
@@ -422,3 +423,261 @@ write.csv(pred1_out, "Data/pred_mean_out.csv", row.names = FALSE)
 
 ```
 
+# Modeling Skew
+
+```{r}
+# Boxcox transformation for skew
+boxcox(lm(data$skewness ~ 1))
+
+```
+
+Using the Box-Cox transformation above, it is clear that the $\lambda$ which maximizes the log-likelihood is around 0.5 which indicates a square root transformation on the response is optimal.
+
+## Interpretable Model
+
+```{r}
+# Building the more interpetable model
+skew_m1 <- lm(sqrt(skewness) ~ sqrt(St) + as.factor(Re) + as.factor(logistic_Fr), 
+         data = data)
+
+# Getting the summary for the model 
+skew_int <- summary(skew_m1)
+skew_int
+```
+
+Above, a linear model is fit with the predictors which were determind to have the best model output in ridge regression.
+
+```{r}
+# Model diagnostics for interpretable model
+cat("R²:", skew_int$r.squared, "\n")
+cat("Adjusted R²:", skew_int$adj.r.squared, "\n")
+cat("AIC:", AIC(skew_m1), "\n")
+cat("BIC:", BIC(skew_m1), "\n")
+
+```
+
+```{r}
+# Determining the RMSE
+y <- sqrt(data$skewness)
+y_hat <- fitted(skew_int)
+resid <- residuals(skew_int)
+
+RMSE <- sqrt(mean(resid^2))
+MSE  <- mean(resid^2)
+bias <- mean(resid)
+
+c(RMSE = RMSE, MSE = MSE, Bias = bias)
+
+```
+
+```{r}
+# Finding the Cp
+n <- length(m1$fitted.values)
+p <- length(coef(skew_m1))       # includes intercept
+SSE <- sum(resid(skew_m1)^2)
+sigma2 <- summary(skew_m1)$sigma^2
+
+Cp <- SSE / sigma2 - n + 2 * p
+Cp
+
+cat("Mallows' Cp:", Cp, "\n")
+
+# Printing the anova test
+anova(m1)
+```
+
+```{r}
+#par(mfrow = c(2, 2))
+plot(skew_m1)
+```
+
+The residual plot appears as though the residuals are fairly evenly distributed above and below 0.
+
+Next, a confidence band is fit around the model parameters when Re and Fr are not treated as categorical variables.
+
+```{r}
+# Using a model without the as.factor
+skew_m2 <- lm(sqrt(skewness) ~ sqrt(St) + Re + logistic_Fr, 
+         data = data)
+skew_int2 <- summary(skew_m2)
+
+# Creating the sequence to make the variables continuous
+St_seq <- seq(min(data$St, na.rm = TRUE),
+              max(data$St, na.rm = TRUE), length.out = 100)
+Re_med <- seq(min(data$Re, na.rm = TRUE),
+              max(data$Re, na.rm = TRUE), length.out = 100)
+log_Fr_med <- seq(min(data$logistic_Fr, na.rm = TRUE),
+              max(data$logistic_Fr, na.rm = TRUE), length.out = 100)
+
+# New dataframe with the continuous values
+newdata <- data.frame(St = St_seq,
+                      Re = Re_med,
+                      logistic_Fr = log_Fr_med)
+
+# Predict fitted means
+pred_conf <- predict(skew_m2, newdata, interval = "confidence")
+
+# Combine for plotting
+plot_df <- cbind(newdata, pred_conf)
+
+
+```
+
+```{r}
+# Assessing model fit for linear model that isn't categorical
+cat("R²:", skew_int2$r.squared, "\n")
+cat("Adjusted R²:", skew_int2$adj.r.squared, "\n")
+cat("AIC:", AIC(skew_m2), "\n")
+cat("BIC:", BIC(skew_m2), "\n")
+```
+
+The model is then plotted with the associated confidence intervals to assess certainty for values that are being interpolated.
+
+```{r}
+## Residual plots with confidence intervals
+# St plot
+ggplot(plot_df, aes(x = St, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
+  geom_line(aes(y = upr), linetype = "dashed", color = "black") + 
+  labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
+       x = "St", y = "Predicted sqrt(skewness)") +
+  theme_minimal()
+
+# Re plot
+ggplot(plot_df, aes(x = Re, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
+  geom_line(aes(y = upr), linetype = "dashed", color = "black") +
+  geom_vline(
+   xintercept = unique(data$Re),
+    linetype = "dashed",
+     color = "red",
+     linewidth = 0.2
+  ) + 
+  labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
+       x = "Re", y = "Predicted sqrt(skewness)") +
+  theme_minimal()
+
+# Logistic_Fr plot
+ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
+  geom_line(aes(y = upr), linetype = "dashed", color = "black") +
+  geom_vline(
+   xintercept = unique(data$logistic_Fr),
+    linetype = "dashed",
+     color = "red",
+     linewidth = 0.2
+  ) + 
+  labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
+       x = "Logistic Fr", y = "Predicted sqrt(skewness)") +
+  theme_minimal()
+```
+
+The red lines above show the true values for both Re and logistic_Fr so the rest of the values are interpolated. The confidence interval is tighter in the middle of the Re and logistic_Fr distributions, but gets wide as we grow more uncertain around the tails of the distribution.
+
+After fitting several model types, ridge regression performed the best. Below, is the output from the ridge regression.
+
+```{r}
+# Basic ridge model
+y <- data$skewness
+X <- model.matrix(sqrt(skewness) ~ sqrt(St) + Re + logistic_Fr, 
+         data = data)[, -1]  
+
+# Fitting the ridge model
+ridge_fit <- cv.glmnet(X, y, alpha = 0, nfolds = 5)
+```
+
+The fit of the ridge model was then assessed using a residual plot.
+
+```{r}
+# Building the residual plot
+# Predicted values
+y_pred <- predict(ridge_fit, newx = X, s = "lambda.min")
+residuals <- y - y_pred
+
+# Residual plot
+plot(y_pred, residuals, 
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residual Plot for Ridge Regression")
+abline(h = 0, col = "black", lwd = 2)
+
+# Adding a nonlinear trend to the residuals
+ord <- order(y_pred)
+lo <- loess(residuals ~ y_pred)
+lines(y_pred[ord], predict(lo)[ord], col = "blue", lwd = 2, lty = 2)
+```
+
+To check assess the extent to which the model is overfit, cross-validation was used to evaluate the model's performance on a hold out set where k = 5.
+
+```{r}
+# Checking for model overfitting
+set.seed(325)
+
+y_ridge <- sqrt(data$skewness)
+X_ridge <- model.matrix(~ sqrt(St) + Re + logistic_Fr,
+                        data = data)[, -1]  
+n <- nrow(X)
+
+# Create folds (rough random splitting)
+fold_ids <- sample(rep(1:k, length.out = n))
+
+# Initializing variables
+y_true_all <- numeric(0)
+y_pred_all <- numeric(0)
+fold_errors <- numeric(0)
+
+# Loop folds
+for (fold in 1:k) {
+  test_idx <- which(fold_ids == fold)
+  train_idx <- setdiff(seq_len(n), test_idx)
+
+  # Splitting into train and test data sets
+  X_train <- X_ridge[train_idx, , drop = FALSE]
+  y_train <- y_ridge[train_idx]
+
+  X_test <- X_ridge[test_idx, , drop = FALSE]
+  y_test <- y_ridge[test_idx]
+
+  # Fit the new models
+  cv_fit <- cv.glmnet(X_train, y_train, alpha = 0, nfolds = 5)   
+  lambda_star <- cv_fit$lambda.min
+
+  # Making prediction on test set
+  preds <- as.numeric(predict(cv_fit, newx = X_test, s = "lambda.min"))
+
+  # Collecting predictions results
+  y_true_all <- c(y_true_all, y_test)
+  y_pred_all <- c(y_pred_all, preds)
+  
+  # Individiual cv errors
+  fold_errors[fold] <- mean((y_test - preds)^2)
+}
+
+## Model diagnostics
+
+# R^2
+SSE <- sum((y_true_all - y_pred_all)^2)
+SST <- sum((y_true_all - mean(y_true_all))^2)
+R2_overall <- 1 - SSE / SST
+
+# RMSE
+resid_cv <- y_true_all - y_pred_all
+RMSE <- sqrt(mean((resid_cv)^2))
+
+# Average CV MSE
+mse_cv <- mean(fold_errors)
+cv_sd <- sd(fold_errors)
+
+metrics <- list(R2 = R2_overall, RMSE = RMSE, 
+                SD = sd(resid))
+metrics
+cat("5-fold CV MSE:", mean(fold_errors), "±", sd(fold_errors), "\n")
+
+```
+
+This model before cross validation has an $R^2$ of 0.457 which is fairly close to the $R^2$ of the model above.
+
+\*\* STOPPED HERE... add the rMSE for original model
