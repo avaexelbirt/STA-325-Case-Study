@@ -656,6 +656,9 @@ for (fold in 1:k) {
   fold_errors[fold] <- mean((y_test - preds)^2)
 }
 
+```
+
+```{r}
 ## Model diagnostics
 
 # R^2
@@ -678,6 +681,4 @@ cat("5-fold CV MSE:", mean(fold_errors), "±", sd(fold_errors), "\n")
 
 ```
 
-This model before cross validation has an $R^2$ of 0.457 which is fairly close to the $R^2$ of the model above.
-
-\*\* STOPPED HERE... add the rMSE for original model
+This model before cross validation has an $R^2$ of 0.457 which is fairly close to the $R^2$ = 0.413 of the model above. The RMSE is also fairly low across the models which means that on average the predictions aren't too far from the true values of the variables.
