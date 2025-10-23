@@ -1,7 +1,9 @@
 ---
 title: "STA 325 Case Study"
 author: "Abby L., Ava E., Ella T., Grady P. Laura C."
-output: pdf_document
+output: 
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r, echo=FALSE, message=FALSE}
@@ -40,57 +42,10 @@ Whether it’s stirring a morning cup of coffee or feeling your stomach lurch du
 
 While we may not be physicists ourselves, as members of Stat 325, we have undertaken the challenge of developing a predictive model to better understand this elusive phenomenon in collaboration with our Professor, Simon Mak. Given observations for fluid turbulence (quantified by Reynolds number Re), gravitational acceleration (quantified by Froud number Fr), and the particle's characteristics (quantified by Stokes number St), we have explored models designed to predict the mean, standard deviation, skewness, and kurtosis of the spatial distribution and clustering of particles in clouds in a state of idealized turbulence. Our goal is to create a model that balances predictive accuracy with interpretability; one that not only performs well statistically but also provides clear, meaningful insights into how different conditions influence turbulent behavior.
 
-### Exploratory Data Analysis
-
-```{r}
-
-data_long <- data %>%
-  dplyr::select(Fr, Re, St) %>%
-  pivot_longer(cols = everything(),
-               names_to = "Variable",
-               values_to = "Value") %>%
-  mutate(Transformation = "Original") %>%
-  bind_rows(
-    data %>%
-      dplyr::select(Fr, Re, St) %>%
-      mutate(across(everything(), sqrt)) %>%
-      pivot_longer(cols = everything(),
-                   names_to = "Variable", 
-                   values_to = "Value") %>%
-      mutate(Transformation = "Sqrt")
-  ) %>%
-  bind_rows(
-    data %>%
-      dplyr::select(Fr, Re, St) %>%
-      mutate(across(everything(), log)) %>%
-      pivot_longer(cols = everything(),
-                   names_to = "Variable", 
-                   values_to = "Value") %>%
-      mutate(Transformation = "Log")
-  )
-ggplot(data_long, aes(x = Value, fill = Transformation)) +
-  geom_histogram(bins = 30, color = "black", alpha = 0.7) +
-  facet_grid(Variable ~ Transformation, scales = "free") +
-  scale_fill_manual(values = c("Original" = "skyblue", 
-                               "Sqrt" = "lightgreen", 
-                               "Log" = "salmon")) +
-  labs(title = "Histograms of Fr, Re, St (Original, Sqrt, Log)",
-       x = "Value", y = "Count") +
-  theme_minimal()
-
-```
-
-
-
-
-We observed that almost all of the residual models have clustered residuals, likely due to both Fr and Re only having 3 unique levels in the data.
-
-
 # Methodology
 Observing the distributions of the response variables, the square root of St was used as well as the log of Re to improve the symmetry of the distribution to address the constant variance assumption. Additionally, the logit function was applied to Fr so that all values are bound between 0 and 1. 
 
 One concern with the data is that Re and Fr each only have 3 unique values. Hence, using these variables to model the distribution of the response variable requires a large amount of uncertainty and interpolation at values of these variables between the 3 distinct values in the data. To continue refining the models, additional data with different values for these models will reduce uncertainty and improve model fit.
-
 
 ## Mean 
 To predict the mean particle cluster volume, we assessed the performance of a few different models including simple linear regression, interaction terms, polynomial models, ridge regression, and spline. We then assessed the fit of each by performing 5-fold CV. The polynomial model performed best. Then, we performed a log transform on the response variable. Our final model is the polynomial regression model on the log-transformed mean. The log transformation was necessary because without it, the residuals showed clear patterns and heteroscedasticity. After transformation, the residuals appear to be randomly scattered around zero with constant variance. The log transformation also addressed the right-skewed distribution of mean cluster volumes in the raw data.
