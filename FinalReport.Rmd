@@ -87,8 +87,9 @@ We observed that almost all of the residual models have clustered residuals, lik
 
 
 # Methodology
-
 Observing the distributions of the response variables, the square root of St was used as well as the log of Re to improve the symmetry of the distribution to address the constant variance assumption. Additionally, the logit function was applied to Fr so that all values are bound between 0 and 1. 
+
+One concern with the data is that Re and Fr each only have 3 unique values. Hence, using these variables to model the distribution of the response variable requires a large amount of uncertainty and interpolation at values of these variables between the 3 distinct values in the data. To continue refining the models, additional data with different values for these models will reduce uncertainty and improve model fit.
 
 
 ## Mean 
