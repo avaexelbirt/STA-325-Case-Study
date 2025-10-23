@@ -89,6 +89,25 @@ data_test <- central_moments_combined |>
 
 # Distribution of St, Re, Fr
 
+```{r}
+
+library(corrplot)
+
+# Select relevant variables from your dataset
+vars <- data[, c("Re", "St_sqrt", "logistic_Fr", 
+                 "R_moment_1", "R_moment_2", "R_moment_3", "R_moment_4")]
+
+# Compute correlation matrix
+corr_matrix <- cor(vars, use = "complete.obs")  # handles missing values
+
+# Plot correlation matrix
+corrplot(corr_matrix, method = "color", 
+         type = "upper", 
+         addCoef.col = "black",  # show correlation coefficients
+         tl.col = "black",       # axis labels color
+         tl.srt = 45)            # label rotation
+```
+
 ### St: size of particles
 
 ```{r}
