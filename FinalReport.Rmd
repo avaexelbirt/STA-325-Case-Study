@@ -81,29 +81,6 @@ ggplot(data_long, aes(x = Value, fill = Transformation)) +
 ```
 
 
-```{r}
-
-library(corrplot)
-
-# Select relevant variables from your dataset
-vars <- data[, c("Re", "St_sqrt", "logistic_Fr", 
-                 "R_moment_1", "R_moment_2", "R_moment_3", "R_moment_4")]
-
-# Compute correlation matrix
-corr_matrix <- cor(vars, use = "complete.obs")  # handles missing values
-
-# Plot correlation matrix
-corrplot(corr_matrix, method = "color", 
-         type = "upper", 
-         addCoef.col = "black",  # show correlation coefficients
-         tl.col = "black",       # axis labels color
-         tl.srt = 45)            # label rotation
-```
-
-
-
-
-
 
 
 We observed that almost all of the residual models have clustered residuals, likely due to both Fr and Re only having 3 unique levels in the data.
@@ -111,7 +88,8 @@ We observed that almost all of the residual models have clustered residuals, lik
 
 # Methodology
 
-The EDA shows a more symmetric spread for log(St) and log(Re), so we log-transformed predictors St and Re to satisfy the constant variance assumption necessary. Given that Fr has "Inf" values, we used the logistic function to transform the predictor so that all the values were finite, where they all ended up being between 0 and 1. 
+Observing the distributions of the response variables, the square root of St was used as well as the log of Re to improve the symmetry of the distribution to address the constant variance assumption. Additionally, the logit function was applied to Fr so that all values are bound between 0 and 1. 
+
 
 ## Mean 
 To predict the mean particle cluster volume, we assessed the performance of a few different models including simple linear regression, interaction terms, polynomial models, ridge regression, and spline. We then assessed the fit of each by performing 5-fold CV. The polynomial model performed best. Then, we performed a log transform on the response variable. Our final model is the polynomial regression model on the log-transformed mean. The log transformation was necessary because without it, the residuals showed clear patterns and heteroscedasticity. After transformation, the residuals appear to be randomly scattered around zero with constant variance. The log transformation also addressed the right-skewed distribution of mean cluster volumes in the raw data.
