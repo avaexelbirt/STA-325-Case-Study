@@ -177,6 +177,27 @@ We observed that almost all of the residual models have clustered residuals, lik
 
 The EDA shows a more symmetric spread for log(St) and log(Re), so we log-transformed predictors St and Re to satisfy the constant variance assumption necessary. Given that Fr has "Inf" values, we used the logistic function to transform the predictor so that all the values were finite, where they all ended up being between 0 and 1. 
 
+## Mean 
+To predict the mean particle cluster volume, we assessed the performance of a few different models including simple linear regression, interaction terms, polynomial models, ridge regression, and spline. We then assessed the fit of each by performing 5-fold CV. The polynomial model performed best. Then, we performed a log transform on the response variable. Our final model is the polynomial regression model on the log-transformed mean. The log transformation was necessary because without it, the residuals showed clear patterns and heteroscedasticity. After transformation, the residuals appear to be randomly scattered around zero with constant variance. The log transformation also addressed the right-skewed distribution of mean cluster volumes in the raw data.
+   
+$$
+\log(\text{mean}) = \beta_0 
++ \beta_1 \, \text{poly}_1(\sqrt{St}) 
++ \beta_2 \, \text{poly}_2(\sqrt{St}) 
++ \beta_3 \, \text{poly}_1(Re) 
++ \beta_4 \, \text{poly}_2(Re) 
++ \beta_5 \, \text{poly}_1(\text{logisticFr}) 
++ \beta_6 \, \text{poly}_2(\text{logisticFr}) 
++ \beta_7 \, (\sqrt{St} \cdot Re) 
++ \beta_8 \, (\sqrt{St} \cdot \text{logisticFr}) 
++ \beta_9 \, (Re \cdot \text{logisticFr}) 
+$$
+The final model includes second-degree polynomial terms for all three predictors (√St, Re, and the logistic-transformed Fr) along with three two-way interactions: √St:Re, √St:logistic_Fr, and Re:logistic_Fr. This model achieved great fit, with an adjusted R² of 0.9978, meaning it explains over 99% of the variation in log(mean) cluster volume. The model's RMSE of 0.098 on the log scale translates to predictions that are typically within about 10% of the true mean cluster volume when back-transformed, although there are still some uncertainty regarding the predictions due to the presence of categorical predictors. 
+
+We also ran ANOVA which reveals which predictors contribute most substantially to explaining mean cluster volume. The results show that Reynolds number has by far the largest effect (Sum of Squares = 431.68), followed by Stokes number (SS = 7.53), and then Froude number (SS = 0.19). All three interaction terms were statistically significant (p \< 0.05), with the Re:logistic_Fr interaction contributing the most (SS = 0.48, p \< 0.001). The significant √St:logistic_Fr interaction (p = 0.001) and marginally significant √St:Re interaction (p = 0.030) suggest that the effects of particle inertia (St) on mean cluster size depend on both gravitational and turbulence conditions. To furhter assess whether this complex model overfits the data, we performed 5-fold cross-validation, averaging the RMSE across folds to estimate out-of-sample prediction error. The cross-validated RMSE was 0.118, only slightly higher than the training RMSE of 0.098, and the CV R² (0.9974) remained nearly identical to the training R² (0.9978). This close agreement between training and validation performance indicates that the model generalizes well to unseen data and does not appear to overfit the data despite its polynomial and interaction terms.
+
+Overall, from fitting the mean with a polynomial model, we see that Reynolds number shows a strong negative linear effect and positive quadratic effect, indicating that mean cluster volume initially decreases sharply with increasing turbulence intensity, then levels off at higher Re values. The Stokes number exhibits a similar but weaker pattern—cluster volumes first increase then decrease with particle inertia. The Froude number's negative linear and positive quadratic effects suggest that gravitational acceleration initially reduces clustering but this effect diminishes at extreme gravity levels. The significant Re:Fr interaction indicates that gravity's effect on clustering becomes stronger in more turbulent flows, which makes physical sense as turbulence and gravity compete in determining particle settling behavior. Overall, we found that Reynolds number (turbulence intensity) is by far the dominant factor controlling mean cluster size, but its effect depends significantly on gravitational conditions, specifically gravity's impact on clustering strengthens in more turbulent flows. This interaction means that predicting particle behavior requires considering both turbulence and gravity together, rather than treating them as independent effects.
+
 ## Standard Deviation
 
 ```{r}
