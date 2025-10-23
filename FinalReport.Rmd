@@ -26,7 +26,6 @@ library(patchwork)
 data <- read.csv("Data/data_transformed.csv")
 ```
 
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = FALSE,
@@ -35,7 +34,6 @@ knitr::opts_chunk$set(
 )
 ```
 
-
 # Introduction
 
 Whether it’s stirring a morning cup of coffee or feeling your stomach lurch during a bumpy airplane ride, nearly everyone has experienced some form of turbulence. Beyond these everyday encounters, turbulence plays a crucial role in many complex natural and industrial processes, from air pollution and chemical reactions to heat transfer and weather systems. Despite its ubiquity, turbulence remains notoriously difficult to predict and has long been regarded as “the last great unsolved problem in classical physics.”
@@ -43,13 +41,15 @@ Whether it’s stirring a morning cup of coffee or feeling your stomach lurch du
 While we may not be physicists ourselves, as members of Stat 325, we have undertaken the challenge of developing a predictive model to better understand this elusive phenomenon in collaboration with our Professor, Simon Mak. Given observations for fluid turbulence (quantified by Reynolds number Re), gravitational acceleration (quantified by Froud number Fr), and the particle's characteristics (quantified by Stokes number St), we have explored models designed to predict the mean, standard deviation, skewness, and kurtosis of the spatial distribution and clustering of particles in clouds in a state of idealized turbulence. Our goal is to create a model that balances predictive accuracy with interpretability; one that not only performs well statistically but also provides clear, meaningful insights into how different conditions influence turbulent behavior.
 
 # Methodology
-Observing the distributions of the predictor variables, the square root of St was used as well as the log of Re to improve the symmetry of the distribution to address the constant variance assumption. Additionally, the logit function was applied to Fr so that all values are bound between 0 and 1. 
+
+Observing the distributions of the predictor variables, the square root of St was used as well as the log of Re to improve the symmetry of the distribution to address the constant variance assumption. Additionally, the logit function was applied to Fr so that all values are bound between 0 and 1.
 
 One concern with the data is that Re and Fr each only have 3 unique values. Hence, using these variables to model the distribution of the response variable requires a large amount of uncertainty and interpolation at values of these variables between the 3 distinct values in the data. To continue refining the models, additional data with different values for these models will reduce uncertainty and improve model fit.
 
-## Mean 
+## Mean
+
 To predict the mean particle cluster volume, we assessed the performance of a few different models including simple linear regression, interaction terms, polynomial models, ridge regression, and spline. We then assessed the fit of each by performing 5-fold CV. The polynomial model performed best. Then, we performed a log transform on the response variable. Our final model is the polynomial regression model on the log-transformed mean. The log transformation was necessary because without it, the residuals showed clear patterns and heteroscedasticity. After transformation, the residuals appear to be randomly scattered around zero with constant variance. The log transformation also addressed the right-skewed distribution of mean cluster volumes in the raw data.
-   
+
 $$
 \log(\text{mean}) = \beta_0 
 + \beta_1 \, \text{poly}_1(\sqrt{St}) 
@@ -61,8 +61,7 @@ $$
 + \beta_7 \, (\sqrt{St} \cdot Re) 
 + \beta_8 \, (\sqrt{St} \cdot \text{logisticFr}) 
 + \beta_9 \, (Re \cdot \text{logisticFr}) 
-$$
-The final model includes second-degree polynomial terms for all three predictors (√St, Re, and the logistic-transformed Fr) along with three two-way interactions: √St:Re, √St:logistic_Fr, and Re:logistic_Fr. This model achieved great fit, with an adjusted R² of 0.9978, meaning it explains over 99% of the variation in log(mean) cluster volume. The model's RMSE of 0.098 on the log scale translates to predictions that are typically within about 10% of the true mean cluster volume when back-transformed, although there are still some uncertainty regarding the predictions due to the presence of categorical predictors. 
+$$ The final model includes second-degree polynomial terms for all three predictors (√St, Re, and the logistic-transformed Fr) along with three two-way interactions: √St:Re, √St:logistic_Fr, and Re:logistic_Fr. This model achieved great fit, with an adjusted R² of 0.9978, meaning it explains over 99% of the variation in log(mean) cluster volume. The model's RMSE of 0.098 on the log scale translates to predictions that are typically within about 10% of the true mean cluster volume when back-transformed, although there are still some uncertainty regarding the predictions due to the presence of categorical predictors.
 
 We also ran ANOVA which reveals which predictors contribute most substantially to explaining mean cluster volume. The results show that Reynolds number has by far the largest effect (Sum of Squares = 431.68), followed by Stokes number (SS = 7.53), and then Froude number (SS = 0.19). All three interaction terms were statistically significant (p \< 0.05), with the Re:logistic_Fr interaction contributing the most (SS = 0.48, p \< 0.001). The significant √St:logistic_Fr interaction (p = 0.001) and marginally significant √St:Re interaction (p = 0.030) suggest that the effects of particle inertia (St) on mean cluster size depend on both gravitational and turbulence conditions. To furhter assess whether this complex model overfits the data, we performed 5-fold cross-validation, averaging the RMSE across folds to estimate out-of-sample prediction error. The cross-validated RMSE was 0.118, only slightly higher than the training RMSE of 0.098, and the CV R² (0.9974) remained nearly identical to the training R² (0.9978). This close agreement between training and validation performance indicates that the model generalizes well to unseen data and does not appear to overfit the data despite its polynomial and interaction terms.
 
@@ -89,11 +88,12 @@ p2 <- ggplot(bc_df, aes(x = lambda, y = logLik)) +
 
 (p1 | p2)
 ```
-The Box Cox transformation shows that the optimal lambda is around 0, so the log transformation on sd is the optimal transformation to address skewness of the response variable. 
 
-We were given a training and testing dataset, so I trained  different linear (with and without ridge and lasso), polynomial and spline regression models comparing the adjusted R-squared the p-values, and used 5-fold CV to compare the top model to determine which model had the best prediction accuracy while working on new, unseen data. 
+The Box Cox transformation shows that the optimal lambda is around 0, so the log transformation on sd is the optimal transformation to address skewness of the response variable.
 
-After multiple models were compared from their adjusted R-squared and 5-fold CV, the linear model with all of the interaction terms was selected based on the balance between predictive accuracy (RMSE = 2.01, Adjusted R-squared = 0.74). The interaction terms were included to capture the potential effects of predictors coupled together. The linear model is interpretable and less risky to overfit, which is helpful in our goal to predict the standard deviations of the distributions given St, Re, and Fr. 
+We were given a training and testing dataset, so I trained different linear (with and without ridge and lasso), polynomial and spline regression models comparing the adjusted R-squared the p-values, and used 5-fold CV to compare the top model to determine which model had the best prediction accuracy while working on new, unseen data.
+
+After multiple models were compared from their adjusted R-squared and 5-fold CV, the linear model with all of the interaction terms was selected based on the balance between predictive accuracy (RMSE = 2.01, Adjusted R-squared = 0.74). The interaction terms were included to capture the potential effects of predictors coupled together. The linear model is interpretable and less risky to overfit, which is helpful in our goal to predict the standard deviations of the distributions given St, Re, and Fr.
 
 $$
 Fr_{logistic} = \frac{1}{1+exp(-Fr)} \\
@@ -112,9 +112,8 @@ model_summary <- data.frame(
 kable(model_summary)
 
 ```
- 
-When running 5-fold CV, the RMSE was 2.0138, which lower compared to other linear, ridge, lasso, spline and polynomial models.
 
+When running 5-fold CV, the RMSE was 2.0138, which lower compared to other linear, ridge, lasso, spline and polynomial models.
 
 ```{r}
 #COULD DELETE THIS MODEL
@@ -123,13 +122,11 @@ lm.fit <- lm(log(sd) ~ (log_St+log_Re+logistic_Fr)^2, data)
 summary(lm.fit)
 ```
 
-
-
 ## Skew
 
-Looking at the distribution of a Skew and a Box-Cox transformation, the square root transformation was deemed most appropriate to address the skewness of the response variable.
+Looking at the distribution of a Skew and a Box-Cox transformation, the square root transformation is selected to address the skewness of the response variable.
 
-```{r}
+```{r, fig.height=3, fig.width=2}
 # EDA for skew
 p1 <- ggplot(data, aes(x = skewness)) +
       geom_histogram(fill = "skyblue", color = "black") +
@@ -148,7 +145,9 @@ p2 <- ggplot(bc_df, aes(x = lambda, y = logLik)) +
 
 (p1 | p2)
 ```
+
 The model which best fit the √(Skew) response is a ridge model fit using 5-fold cross validation. To evaluate the significance of coefficients, the same predictors were fit with OLS to develop better intuition regarding the magnitude and significance of coefficients.
+
 ```{r, echo=FALSE, message=FALSE}
 # Table with the significant coefficients
 skew_sig <-
@@ -158,11 +157,18 @@ skew_sig <-
   )
 kable(skew_sig)
 ```
-From the OLS model, the above coefficients were determined to be the most significant:
-- Transforming logistic_Fr back to Fr yields a coefficient extremely close to 0. This indicates that Fr is not extremely significant for predicting the distribution of √(Skew)
-- Although Fr by itself has a basically negligible impact on the distribution of √(Skew), the interaction between Fr and Re is statistically significant. Lower-hanging clouds have a higher Fr value so a positive interaction between Re and logistic_Fr indicates that either as a cloud's Fr increases (the cloud get lower) or Re increases (the flow is more turbulent), √(Skew) is increasing. Given that logistic_Fr has a negative coefficient yet the interaction between Re and logistic_Fr is positive, exploring the relationship between the height of the cloud and the turbulence of the flow warrants further investigation. 
 
-Given the nature of the three levels for both Re and Fr, there is a large degree of uncertainty for these predictors when predicting the response which is especially evident in the wide nature of the 95% confidence intervals near the extremes of both of these predictors. The below plots show slices of each of the predictors for the response at the mean of the other two predictors which aren't on the x-axis. Receiving additional data in the future would address the high amount of uncertainty in the model as we continue to refine the model. 
+From the OLS model, the above coefficients were determined to be the most significant:
+
+-   Transforming logistic_Fr back to Fr yields a coefficient extremely close to 0. This indicates that Fr is not extremely significant for predicting the distribution of √(Skew)
+
+-   Although Fr by itself has a basically negligible impact on the distribution of √(Skew), the interaction between Fr and Re is statistically significant. Lower-hanging clouds have a higher Fr value so a positive interaction between Re and logistic_Fr indicates that either as a cloud's Fr increases (the cloud get lower) or Re increases (the flow is more turbulent), √(Skew) is increasing. Given that logistic_Fr has a negative coefficient yet the interaction between Re and logistic_Fr is positive, exploring the relationship between the height of the cloud and the turbulence of the flow warrants further investigation.
+
+In a separate model with the same linear combinations of predictors, logistic_Fr and Re were also treated categorically. Using categorical variables greatly improved the model performance (quantified by $R^2$, AIC, BIC, and Cp). Despite a categorical model being an unrealistic fit if new data has values which don't fall into these categories, the model still provided insights into the model fit:
+
+-   
+
+Given the nature of the three levels for both Re and Fr, there is a large degree of uncertainty for these predictors when predicting the response which is especially evident in the wide nature of the 95% confidence intervals near the extremes of both of these predictors. The below plots show slices of each of the predictors for the response at the mean of the other two predictors which aren't on the x-axis. Receiving additional data in the future would address the high amount of uncertainty in the model as we continue to refine the model.
 
 ```{r, fig.width=9, fig.height=3}
 # Using a model without the as.factor
@@ -241,12 +247,9 @@ p3 <- ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
 (p1 | p2 | p3)
 ```
 
-
 # Results
 
 ## Standard Deviation
-
-
 
 CONFIDENCE INTERVAL
 
@@ -254,11 +257,7 @@ CONFIDENCE INTERVAL
 summary(lm.fit)
 ```
 
-
-From our model, we can see that log_Re, logistic_Fr, and the interaction between log_Re and logistic_Fr has significant effects on the standard deviation of the particle cluster volume distribution. For example, holding other factors constant, for a 1% increase in the Reynold's Number, there would be a 4.915% in decrease standard deviation. Also, holding other factors constant, for a 1% increase in the Stokes number, there would be a 20.704% decrease in standard deviation. In context, this means that more turbulent regimes and regimes with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduces in regimes with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logisitc(Fr). 
-
-
-
+From our model, we can see that log_Re, logistic_Fr, and the interaction between log_Re and logistic_Fr has significant effects on the standard deviation of the particle cluster volume distribution. For example, holding other factors constant, for a 1% increase in the Reynold's Number, there would be a 4.915% in decrease standard deviation. Also, holding other factors constant, for a 1% increase in the Stokes number, there would be a 20.704% decrease in standard deviation. In context, this means that more turbulent regimes and regimes with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduces in regimes with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logisitc(Fr).
 
 Predictions on Test Data
 
@@ -277,6 +276,5 @@ test <- test |>
 
 test
 ```
-
 
 # Conclusion
