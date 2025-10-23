@@ -88,6 +88,43 @@ data_test <- central_moments_combined |>
 ```
 
 # Distribution of St, Re, Fr
+```{r}
+data_long <- data %>%
+  dplyr::select(Fr, Re, St) %>%
+  pivot_longer(cols = everything(),
+               names_to = "Variable",
+               values_to = "Value") %>%
+  mutate(Transformation = "Original") %>%
+  bind_rows(
+    data %>%
+      dplyr::select(Fr, Re, St) %>%
+      mutate(across(everything(), sqrt)) %>%
+      pivot_longer(cols = everything(),
+                   names_to = "Variable", 
+                   values_to = "Value") %>%
+      mutate(Transformation = "Sqrt")
+  ) %>%
+  bind_rows(
+    data %>%
+      dplyr::select(Fr, Re, St) %>%
+      mutate(across(everything(), log)) %>%
+      pivot_longer(cols = everything(),
+                   names_to = "Variable", 
+                   values_to = "Value") %>%
+      mutate(Transformation = "Log")
+  )
+ggplot(data_long, aes(x = Value, fill = Transformation)) +
+  geom_histogram(bins = 30, color = "black", alpha = 0.7) +
+  facet_grid(Variable ~ Transformation, scales = "free") +
+  scale_fill_manual(values = c("Original" = "skyblue", 
+                               "Sqrt" = "lightgreen", 
+                               "Log" = "salmon")) +
+  labs(title = "Histograms of Fr, Re, St (Original, Sqrt, Log)",
+       x = "Value", y = "Count") +
+  theme_minimal()
+
+```
+
 
 ```{r}
 
