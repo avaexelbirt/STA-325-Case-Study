@@ -43,7 +43,7 @@ Whether it’s stirring a morning cup of coffee or feeling your stomach lurch du
 While we may not be physicists ourselves, as members of Stat 325, we have undertaken the challenge of developing a predictive model to better understand this elusive phenomenon in collaboration with our Professor, Simon Mak. Given observations for fluid turbulence (quantified by Reynolds number Re), gravitational acceleration (quantified by Froud number Fr), and the particle's characteristics (quantified by Stokes number St), we have explored models designed to predict the mean, standard deviation, skewness, and kurtosis of the spatial distribution and clustering of particles in clouds in a state of idealized turbulence. Our goal is to create a model that balances predictive accuracy with interpretability; one that not only performs well statistically but also provides clear, meaningful insights into how different conditions influence turbulent behavior.
 
 # Methodology
-Observing the distributions of the response variables, the square root of St was used as well as the log of Re to improve the symmetry of the distribution to address the constant variance assumption. Additionally, the logit function was applied to Fr so that all values are bound between 0 and 1. 
+Observing the distributions of the predictor variables, the square root of St was used as well as the log of Re to improve the symmetry of the distribution to address the constant variance assumption. Additionally, the logit function was applied to Fr so that all values are bound between 0 and 1. 
 
 One concern with the data is that Re and Fr each only have 3 unique values. Hence, using these variables to model the distribution of the response variable requires a large amount of uncertainty and interpolation at values of these variables between the 3 distinct values in the data. To continue refining the models, additional data with different values for these models will reduce uncertainty and improve model fit.
 
@@ -127,7 +127,7 @@ summary(lm.fit)
 
 ## Skew
 
-Looking at the distribution of a Skew through the EDA and Box-Cox transformation (below), a square root transformation on Skew was deemed most appropriate to address the right skewness of the response variable.
+Looking at the distribution of a Skew and a Box-Cox transformation, the square root transformation was deemed most appropriate to address the skewness of the response variable.
 
 ```{r}
 # EDA for skew
@@ -148,9 +148,7 @@ p2 <- ggplot(bc_df, aes(x = lambda, y = logLik)) +
 
 (p1 | p2)
 ```
-
-The model which best fit the sqrt(skewness) response is a ridge model fit with 5 fold cross validation. To evaluate the significance of coefficients, the same model was then fit with OLS to develop better intuition regarding the magnitude and significance of coefficients. The below table highlights two of the most significant coefficients:
-
+The model which best fit the √(Skew) response is a ridge model fit using 5-fold cross validation. To evaluate the significance of coefficients, the same predictors were fit with OLS to develop better intuition regarding the magnitude and significance of coefficients.
 ```{r, echo=FALSE, message=FALSE}
 # Table with the significant coefficients
 skew_sig <-
@@ -160,7 +158,9 @@ skew_sig <-
   )
 kable(skew_sig)
 ```
-NOTE: Need to add interpretation of the coefficients here
+From the OLS model, the above coefficients were determined to be the most significant:
+- Transforming logistic_Fr back to Fr yields a coefficient extremely close to 0. This indicates that Fr is not extremely significant for predicting the distribution of √(Skew)
+- Although Fr by itself has a basically negligible impact on the distribution of √(Skew), the interaction between Fr and Re is statistically significant. Lower-hanging clouds have a higher Fr value so a positive interaction between Re and logistic_Fr indicates that either as a cloud's Fr increases (the cloud get lower) or Re increases (the flow is more turbulent), √(Skew) is increasing. Given that logistic_Fr has a negative coefficient yet the interaction between Re and logistic_Fr is positive, exploring the relationship between the height of the cloud and the turbulence of the flow warrants further investigation. 
 
 Given the nature of the three levels for both Re and Fr, there is a large degree of uncertainty for these predictors when predicting the response which is especially evident in the wide nature of the 95% confidence intervals near the extremes of both of these predictors. The below plots show slices of each of the predictors for the response at the mean of the other two predictors which aren't on the x-axis. Receiving additional data in the future would address the high amount of uncertainty in the model as we continue to refine the model. 
 
