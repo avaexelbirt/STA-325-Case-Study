@@ -21,8 +21,10 @@ library(knitr)
 library(patchwork)
 
 # Loading the data
-data <- read.csv("~/STA-325-Case-Study/Individual Case Study First Steps/data_transformed.csv")
+data <- read.csv("Data/data_transformed.csv")
 ```
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = FALSE,
@@ -80,7 +82,7 @@ data <- central_moments_combined |>
          Fr_2 = Fr**2,
          St_sqrt = sqrt(St),
          Re_sqrt = sqrt(Re),
-         logistic_Fr = 1/(1+exp(-Fr)) # using logitistic transformation for inf
+         logistic_Fr = 1/(1+exp(-Fr)) # using logistic transformation for inf
          )
 
 data_test <- central_moments_combined |>
@@ -91,7 +93,7 @@ data_test <- central_moments_combined |>
          Fr_2 = Fr**2,
          St_sqrt = sqrt(St),
          Re_sqrt = sqrt(Re),
-         logistic_Fr = 1/(1+exp(-Fr)) # using logitistic transformation for inf
+         logistic_Fr = 1/(1+exp(-Fr)) # using logistic transformation for inf
          )
 ```
 
@@ -173,6 +175,65 @@ We observed that almost all of the residual models have clustered residuals, lik
 
 
 # Methodology
+
+The EDA shows a more symmetric spread for log(St) and log(Re), so we log-transformed predictors St and Re to satisfy the constant variance assumption necessary. Given that Fr has "Inf" values, we used the logistic function to transform the predictor so that all the values were finite, where they all ended up being between 0 and 1. 
+
+## Standard Deviation
+
+```{r}
+# EDA for standard deviation
+p1 <- ggplot(data, aes(x = sd)) +
+      geom_histogram(fill = "skyblue", color = "black") +
+      labs(title = "Histogram of Standard Deviation", x = "Standard Deviation", y = "Count") + 
+  theme_minimal()
+
+bc <- boxcox(lm(sd ~ 1, data = data), plotit = FALSE)
+bc_df <- data.frame(lambda = bc$x, logLik = bc$y)
+
+p2 <- ggplot(bc_df, aes(x = lambda, y = logLik)) +
+  geom_line(color = "black") +
+  geom_vline(xintercept = bc$x[which.max(bc$y)], color = "red", linetype = "dashed") +
+  geom_vline(xintercept = 0, color = "black", linetype="dashed") + 
+  labs(title = "Box-Cox Transformation", x = "Lambda", y = "Log-Likelihood") +
+  theme_minimal()
+
+(p1 | p2)
+```
+The Box Cox transformation shows that the optimal lambda is around 0, so the log transformation on sd is the optimal transformation to address skewness of the response variable. 
+
+We were given a training and testing dataset, so I trained  different linear (with and without ridge and lasso), polynomial and spline regression models comparing the adjusted R-squared the p-values, and used 5-fold CV to compare the top model to determine which model had the best prediction accuracy while working on new, unseen data. 
+
+After multiple models were compared from their adjusted R-squared and 5-fold CV, the linear model with all of the interaction terms was selected based on the balance between predictive accuracy (RMSE = 2.01, Adjusted R-squared = 0.74). The interaction terms were included to capture the potential effects of predictors coupled together. The linear model is interpretable and less risky to overfit, which is helpful in our goal to predict the standard deviations of the distributions given St, Re, and Fr. 
+
+$$
+Fr_{logistic} = \frac{1}{1+exp(-Fr)} \\
+log(\hat{sd}) = 26.5 + 0.642 log(St) - 4.915 log(Re) -20.704 Fr_{logistic} -0.027log(St)log(Re) - 0.102log(St)Fr_{logistic}+3.557log(Re)Fr_{logistic}
+$$
+
+```{r}
+model_summary <- data.frame(
+  Model = c(
+    "lin","lin_interactions","lin_interactions_subset","poly","spline","lasso",
+    "ridge"
+  ),
+  RMSE = c(2.077942, 2.013816, 2.166138, 2.072878,2.115911,2.068582, 2.080013)
+)
+
+kable(model_summary)
+
+```
+ 
+When running 5-fold CV, the RMSE was 2.0138, which lower compared to other linear, ridge, lasso, spline and polynomial models.
+
+
+```{r}
+#COULD DELETE THIS MODEL
+lm.fit <- lm(log(sd) ~ (log_St+log_Re+logistic_Fr)^2, data)
+#plot(lm.fit) 
+summary(lm.fit)
+```
+
+
 
 ## Skew
 
@@ -292,6 +353,40 @@ p3 <- ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
 
 
 # Results
+
+## Standard Deviation
+
+
+
+CONFIDENCE INTERVAL
+
+```{r}
+summary(lm.fit)
+```
+
+
+From our model, we can see that log_Re, logistic_Fr, and the interaction between log_Re and logistic_Fr has significant effects on the standard deviation of the particle cluster volume distribution. For example, holding other factors constant, for a 1% increase in the Reynold's Number, there would be a 4.915% in decrease standard deviation. Also, holding other factors constant, for a 1% increase in the Stokes number, there would be a 20.704% decrease in standard deviation. In context, this means that more turbulent regimes and regimes with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduces in regimes with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logisitc(Fr). 
+
+
+
+
+Predictions on Test Data
+
+```{r}
+test <- read.csv("Data/data-test.csv")
+
+test <- test |>
+  mutate(logistic_Fr = 1/(1+exp(-Fr)))
+
+
+sd_fit <- lm(log(sd) ~ (log(St)+log(Re)+logistic_Fr)^2, data)
+
+sd_predict <- predict(sd_fit, test)
+test <- test |>
+  mutate(sd = sd_predict)
+
+test
+```
 
 
 # Conclusion
