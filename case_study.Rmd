@@ -429,6 +429,7 @@ write.csv(pred1_out, "Data/pred_mean_out.csv", row.names = FALSE)
 # Boxcox transformation for skew
 boxcox(lm(data$skewness ~ 1))
 
+
 ```
 
 Using the Box-Cox transformation above, it is clear that the $\lambda$ which maximizes the log-likelihood is around 0.5 which indicates a square root transformation on the response is optimal.
@@ -437,7 +438,9 @@ Using the Box-Cox transformation above, it is clear that the $\lambda$ which max
 
 ```{r}
 # Building the more interpetable model
-skew_m1 <- lm(sqrt(skewness) ~ sqrt(St) + as.factor(Re) + as.factor(logistic_Fr), 
+skew_m1 <- lm(sqrt(skewness) ~ sqrt(St) + as.factor(Re) + as.factor(logistic_Fr) + 
+                sqrt(St):as.factor(Re) + sqrt(St):as.factor(logistic_Fr) + 
+                as.factor(Re):as.factor(logistic_Fr), 
          data = data)
 
 # Getting the summary for the model 
@@ -487,7 +490,7 @@ anova(m1)
 ```
 
 ```{r}
-#par(mfrow = c(2, 2))
+par(mfrow = c(2, 2))
 plot(skew_m1)
 ```
 
@@ -497,30 +500,80 @@ Next, a confidence band is fit around the model parameters when Re and Fr are no
 
 ```{r}
 # Using a model without the as.factor
-skew_m2 <- lm(sqrt(skewness) ~ sqrt(St) + Re + logistic_Fr, 
+skew_m2 <- lm(sqrt(skewness) ~ St_sqrt + Re + logistic_Fr + St_sqrt:Re + 
+               St_sqrt:logistic_Fr + Re:logistic_Fr, 
          data = data)
 skew_int2 <- summary(skew_m2)
 
-# Creating the sequence to make the variables continuous
-St_seq <- seq(min(data$St, na.rm = TRUE),
-              max(data$St, na.rm = TRUE), length.out = 100)
-Re_med <- seq(min(data$Re, na.rm = TRUE),
-              max(data$Re, na.rm = TRUE), length.out = 100)
-log_Fr_med <- seq(min(data$logistic_Fr, na.rm = TRUE),
-              max(data$logistic_Fr, na.rm = TRUE), length.out = 100)
+```
 
-# New dataframe with the continuous values
-newdata <- data.frame(St = St_seq,
-                      Re = Re_med,
-                      logistic_Fr = log_Fr_med)
+```{r}
+# Confidence interval dataframe
+skew_ci <- cbind(
+  data,
+  predict(skew_m2, interval = "confidence", level = 0.95)
+)
 
-# Predict fitted means
-pred_conf <- predict(skew_m2, newdata, interval = "confidence")
+# Create a new data frame varying Re while fixing others at their mean
+newdata <- data.frame(
+  Re = seq(min(data$Re), max(data$Re), length.out = 100),
+  St_sqrt = mean(sqrt(data$St), na.rm = TRUE),
+  logistic_Fr = mean(data$logistic_Fr, na.rm = TRUE)
+)
 
-# Combine for plotting
-plot_df <- cbind(newdata, pred_conf)
+# Predict fit + 95% CI for these Re values
+pred <- predict(skew_m2, newdata = newdata, interval = "confidence", level = 0.95)
+plot_df <- cbind(newdata, pred)
 
+ggplot(plot_df, aes(x = Re, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
+    x = "Re",
+    y = "Predicted sqrt(skewness)"
+  ) +
+  theme_minimal()
 
+# Doing the same for St
+newdata <- data.frame(
+  St_sqrt = seq(min(sqrt(data$St)), max(sqrt(data$St)), length.out = 100),
+  Re = mean(data$Re, na.rm = TRUE),
+  logistic_Fr = mean(data$logistic_Fr, na.rm = TRUE)
+)
+
+pred <- predict(skew_m2, newdata = newdata, interval = "confidence", level = 0.95)
+plot_df <- cbind(newdata, pred)
+
+ggplot(plot_df, aes(x = St_sqrt, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
+    x = "sqrt(St)",
+    y = "Predicted sqrt(skewness)"
+  ) +
+  theme_minimal()
+
+# Same for logistic_Fr
+newdata <- data.frame(
+  logistic_Fr = seq(min(data$logistic_Fr), max(data$logistic_Fr), length.out = 100),
+  Re = mean(data$Re, na.rm = TRUE),
+  St_sqrt = mean(sqrt(data$St), na.rm = TRUE)
+)
+
+pred <- predict(skew_m2, newdata = newdata, interval = "confidence", level = 0.95)
+plot_df <- cbind(newdata, pred)
+
+ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
+    x = "logistic_Fr",
+    y = "Predicted sqrt(skewness)"
+  ) +
+  theme_minimal()
 ```
 
 ```{r}
@@ -533,48 +586,6 @@ cat("BIC:", BIC(skew_m2), "\n")
 
 The model is then plotted with the associated confidence intervals to assess certainty for values that are being interpolated.
 
-```{r}
-## Residual plots with confidence intervals
-# St plot
-ggplot(plot_df, aes(x = St, y = fit)) +
-  geom_line(color = "blue", size = 1) +
-  geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
-  geom_line(aes(y = upr), linetype = "dashed", color = "black") + 
-  labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
-       x = "St", y = "Predicted sqrt(skewness)") +
-  theme_minimal()
-
-# Re plot
-ggplot(plot_df, aes(x = Re, y = fit)) +
-  geom_line(color = "blue", size = 1) +
-  geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
-  geom_line(aes(y = upr), linetype = "dashed", color = "black") +
-  geom_vline(
-   xintercept = unique(data$Re),
-    linetype = "dashed",
-     color = "red",
-     linewidth = 0.2
-  ) + 
-  labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
-       x = "Re", y = "Predicted sqrt(skewness)") +
-  theme_minimal()
-
-# Logistic_Fr plot
-ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
-  geom_line(color = "blue", size = 1) +
-  geom_line(aes(y = lwr), linetype = "dashed", color = "black") +
-  geom_line(aes(y = upr), linetype = "dashed", color = "black") +
-  geom_vline(
-   xintercept = unique(data$logistic_Fr),
-    linetype = "dashed",
-     color = "red",
-     linewidth = 0.2
-  ) + 
-  labs(title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
-       x = "Logistic Fr", y = "Predicted sqrt(skewness)") +
-  theme_minimal()
-```
-
 The red lines above show the true values for both Re and logistic_Fr so the rest of the values are interpolated. The confidence interval is tighter in the middle of the Re and logistic_Fr distributions, but gets wide as we grow more uncertain around the tails of the distribution.
 
 After fitting several model types, ridge regression performed the best. Below, is the output from the ridge regression.
@@ -582,7 +593,8 @@ After fitting several model types, ridge regression performed the best. Below, i
 ```{r}
 # Basic ridge model
 y <- data$skewness
-X <- model.matrix(sqrt(skewness) ~ sqrt(St) + Re + logistic_Fr, 
+X <- model.matrix(sqrt(skewness) ~ St_sqrt + Re + logistic_Fr + St_sqrt:Re + 
+               St_sqrt:logistic_Fr + Re:logistic_Fr, 
          data = data)[, -1]  
 
 # Fitting the ridge model
@@ -617,7 +629,8 @@ To check assess the extent to which the model is overfit, cross-validation was u
 set.seed(325)
 
 y_ridge <- sqrt(data$skewness)
-X_ridge <- model.matrix(~ sqrt(St) + Re + logistic_Fr,
+X_ridge <- model.matrix(~ St_sqrt + Re + logistic_Fr + St_sqrt:Re + 
+               St_sqrt:logistic_Fr + Re:logistic_Fr,
                         data = data)[, -1]  
 n <- nrow(X)
 
@@ -681,4 +694,4 @@ cat("5-fold CV MSE:", mean(fold_errors), "±", sd(fold_errors), "\n")
 
 ```
 
-This model before cross validation has an $R^2$ of 0.457 which is fairly close to the $R^2$ = 0.413 of the model above. The RMSE is also fairly low across the models which means that on average the predictions aren't too far from the true values of the variables.
+This model before cross validation has an $R^2$ of 0.477 which is fairly close to the $R^2$ = 0.537 of the model above. The RMSE is also fairly low across the models which means that on average the predictions aren't too far from the true values of the variables.
