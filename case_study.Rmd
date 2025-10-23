@@ -504,6 +504,7 @@ skew_m2 <- lm(sqrt(skewness) ~ St_sqrt + Re + logistic_Fr + St_sqrt:Re +
                St_sqrt:logistic_Fr + Re:logistic_Fr, 
          data = data)
 skew_int2 <- summary(skew_m2)
+skew_int2
 
 ```
 
@@ -592,6 +593,7 @@ After fitting several model types, ridge regression performed the best. Below, i
 
 ```{r}
 # Basic ridge model
+set.seed(325)
 y <- data$skewness
 X <- model.matrix(sqrt(skewness) ~ St_sqrt + Re + logistic_Fr + St_sqrt:Re + 
                St_sqrt:logistic_Fr + Re:logistic_Fr, 
@@ -599,6 +601,7 @@ X <- model.matrix(sqrt(skewness) ~ St_sqrt + Re + logistic_Fr + St_sqrt:Re +
 
 # Fitting the ridge model
 ridge_fit <- cv.glmnet(X, y, alpha = 0, nfolds = 5)
+
 ```
 
 The fit of the ridge model was then assessed using a residual plot.
