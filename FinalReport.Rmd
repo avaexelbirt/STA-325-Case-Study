@@ -7,6 +7,7 @@ output: pdf_document
 ```{r, echo=FALSE, message=FALSE}
 # Loading packages and data
 library(tidyverse)
+library(tidyr)
 library(dplyr)
 library(ggplot2)
 library(moments)
@@ -31,6 +32,69 @@ knitr::opts_chunk$set(
 
 ```
 
+```{r}
+## Loading the data
+data_csv <- read.csv("Data/data-train.csv")
+data_test <- read.csv("Data/data-test.csv")
+# convert raw moments to central moments
+library(moments)
+
+# raw moments from training data
+m1 <- data_csv$R_moment_1   
+m2 <- data_csv$R_moment_2
+m3 <- data_csv$R_moment_3
+m4 <- data_csv$R_moment_4
+
+# raw moments starting at 0
+raw_mat0 <- cbind(m0 = 1, m1 = m1, m2 = m2, m3 = m3, m4 = m4)
+
+# raw to central
+central_all <- t(apply(raw_mat0, 1, raw2central))
+
+
+
+output <- data.frame(
+  mean        = m1, # mean- first raw moment
+  mu2_central = central_all[, 3], # sd 
+  mu3_central = central_all[, 4], # skew
+  mu4_central = central_all[, 5] # kurtosis
+)
+
+# Converting the central moments to statistics by dividing by sd
+output$sd <- sqrt(output$mu2_central) # sd= sqrt(2nd central moment)
+output$skewness <- output$mu3_central / (output$sd^3) # 3rd cm / sd^3
+output$kurtosis <- output$mu4_central / (output$sd^4) #4th cm/ sd^4
+
+central_moments_combined <- cbind(data_csv, output)
+```
+
+# Transform Predictors
+
+```{r}
+# Final dataframe with transformed predictors as well
+data <- central_moments_combined |>
+  mutate(log_St = log(St), 
+         log_Re = log(Re),
+         St_2 = St**2,
+         Re_2 = Re**2,
+         Fr_2 = Fr**2,
+         St_sqrt = sqrt(St),
+         Re_sqrt = sqrt(Re),
+         logistic_Fr = 1/(1+exp(-Fr)) # using logitistic transformation for inf
+         )
+
+data_test <- central_moments_combined |>
+  mutate(log_St = log(St), 
+         log_Re = log(Re),
+         St_2 = St**2,
+         Re_2 = Re**2,
+         Fr_2 = Fr**2,
+         St_sqrt = sqrt(St),
+         Re_sqrt = sqrt(Re),
+         logistic_Fr = 1/(1+exp(-Fr)) # using logitistic transformation for inf
+         )
+```
+
 
 # Introduction
 
@@ -42,47 +106,46 @@ While we may not be physicists ourselves, as members of Stat 325, we have undert
 ### Exploratory Data Analysis
 
 ```{r}
-# Create long-format dataset with Variable and Transformation columns
+
 data_long <- data %>%
-  select(Fr, Re, St) %>%
+  dplyr::select(Fr, Re, St) %>%
   pivot_longer(cols = everything(),
                names_to = "Variable",
                values_to = "Value") %>%
   mutate(Transformation = "Original") %>%
   bind_rows(
     data %>%
-      select(Fr, Re, St) %>%
+      dplyr::select(Fr, Re, St) %>%
       mutate(across(everything(), sqrt)) %>%
-      pivot_longer(cols = everything(), 
+      pivot_longer(cols = everything(),
                    names_to = "Variable", 
                    values_to = "Value") %>%
       mutate(Transformation = "Sqrt")
   ) %>%
   bind_rows(
     data %>%
-      select(Fr, Re, St) %>%
+      dplyr::select(Fr, Re, St) %>%
       mutate(across(everything(), log)) %>%
-      pivot_longer(cols = everything(), 
+      pivot_longer(cols = everything(),
                    names_to = "Variable", 
                    values_to = "Value") %>%
       mutate(Transformation = "Log")
   )
-
 ggplot(data_long, aes(x = Value, fill = Transformation)) +
   geom_histogram(bins = 30, color = "black", alpha = 0.7) +
   facet_grid(Variable ~ Transformation, scales = "free") +
-  scale_fill_manual(values = c("Original" = "skyblue", "Sqrt" = "lightgreen", 
+  scale_fill_manual(values = c("Original" = "skyblue", 
+                               "Sqrt" = "lightgreen", 
                                "Log" = "salmon")) +
   labs(title = "Histograms of Fr, Re, St (Original, Sqrt, Log)",
        x = "Value", y = "Count") +
   theme_minimal()
 
-
 ```
 
 
 ```{r}
-# install.packages("corrplot") # only if not installed
+
 library(corrplot)
 
 # Select relevant variables from your dataset
