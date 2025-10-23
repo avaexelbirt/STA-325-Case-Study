@@ -166,6 +166,16 @@ From the OLS model, the above coefficients were determined to be the most signif
 
 In a separate model with the same linear combinations of predictors, logistic_Fr and Re were also treated categorically. Using categorical variables greatly improved the model performance (quantified by $R^2$, AIC, BIC, and Cp). Despite a categorical model being an unrealistic fit if new data has values which don't fall into these categories, the model still provided insights into the model fit:
 
+```{r, echo=FALSE, message=FALSE}
+# Table with the significant coefficients
+skew_cat <-
+  data.frame(
+    Predictor = c("sqrt(St):as.factor(Re)224", "sqrt(St):as.factor(Re)398  "),
+    Estimate = c(-1.4173, -2.5683)
+  )
+kable(skew_cat)
+```
+
 -   
 
 Given the nature of the three levels for both Re and Fr, there is a large degree of uncertainty for these predictors when predicting the response which is especially evident in the wide nature of the 95% confidence intervals near the extremes of both of these predictors. The below plots show slices of each of the predictors for the response at the mean of the other two predictors which aren't on the x-axis. Receiving additional data in the future would address the high amount of uncertainty in the model as we continue to refine the model.
