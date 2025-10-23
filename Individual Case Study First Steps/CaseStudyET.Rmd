@@ -392,3 +392,69 @@ comparing different models articulate and understand assumptions of each model -
 
 
 Takeaways: we need a nonlinear model as there are clear deviations in the model performance once appropriately specified, but we must be able to interpret the model
+
+
+
+
+```{r}
+# install.packages("corrplot") # only if not installed
+library(corrplot)
+
+# Select relevant variables from your dataset
+vars <- data[, c("Re", "St", "logistic_Fr", 
+                 "R_moment_1", "R_moment_2", "R_moment_3", "R_moment_4")]
+
+# Compute correlation matrix
+corr_matrix <- cor(vars, use = "complete.obs")  # handles missing values
+
+# Plot correlation matrix
+corrplot(corr_matrix, method = "color", 
+         type = "upper", 
+         addCoef.col = "black",  # show correlation coefficients
+         tl.col = "black",       # axis labels color
+         tl.srt = 45)            # label rotation
+
+```
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# Create long-format dataset with Variable and Transformation columns
+data_long <- data %>%
+  select(Fr, Re, St) %>%
+  pivot_longer(cols = everything(),
+               names_to = "Variable",
+               values_to = "Value") %>%
+  mutate(Transformation = "Original") %>%
+  bind_rows(
+    data %>%
+      select(Fr, Re, St) %>%
+      mutate(across(everything(), sqrt)) %>%
+      pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+      mutate(Transformation = "Sqrt")
+  ) %>%
+  bind_rows(
+    data %>%
+      select(Fr, Re, St) %>%
+      mutate(across(everything(), log)) %>%
+      pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+      mutate(Transformation = "Log")
+  )
+
+ggplot(data_long, aes(x = Value, fill = Transformation)) +
+  geom_histogram(bins = 30, color = "black", alpha = 0.7) +
+  facet_grid(Variable ~ Transformation, scales = "free") +
+  scale_fill_manual(values = c("Original" = "skyblue", "Sqrt" = "lightgreen", "Log" = "salmon")) +
+  labs(title = "Histograms of Fr, Re, St (Original, Sqrt, Log)",
+       x = "Value", y = "Count") +
+  theme_minimal()
+
+
+
+
+```
+
+
