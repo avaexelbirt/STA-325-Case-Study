@@ -140,7 +140,7 @@ plot_meanFr1 <- ggplot(plot_meanFr, aes(x= logistic_Fr, y = fit)) +
 
 ```
 
-```{r}
+```{r, fig.width=9, fig.height=3}
 (plot_meanRe1 | plot_meanSt1 | plot_meanFr1)
 ```
 
@@ -194,11 +194,11 @@ kable(model_summary)
 
 When running 5-fold CV, the RMSE for the selected model is 2.0138, which is lower compared to other linear, ridge, lasso, spline and polynomial models.
 
-```{r}
+```{r, echo = FALSE}
 #COULD DELETE THIS MODEL
 lm.fit <- lm(log(sd) ~ (log_St+log_Re+logistic_Fr)^2, data)
 #plot(lm.fit) 
-summary(lm.fit)
+# summary(lm.fit)
 ```
 
 ```{r, echo= FALSE}
@@ -264,7 +264,7 @@ plot_sdFr1 <- ggplot(plot_sdFr, aes(x= logistic_Fr, y = fit)) +
   theme_minimal()
 ```
 
-```{r}
+```{r, fig.width=9, fig.height=3}
 (plot_sdSt1 | plot_sdRe1 | plot_sdFr1)
 ```
 The plots depict the 95% CI for the predicted log(sd) as each predictor varies, given that the other two predictors are held at their average values. For Re, we are fairly confident that there appears to be a positive relationship between log(St) and log(SD), with greater variability near the extremes. For Re, we are very confident that there is a strong negative relationship between log(Re) and log(SD), such that at larger Re values, there is less variability in log(Re). For Fr, we have some confidence that the relationship between logistic(Fr) and log(SD) is negative; however, the confidence band is much wider compared to the other predictors, which means that there does appear to be more uncertainty. 
