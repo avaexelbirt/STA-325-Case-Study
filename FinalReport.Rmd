@@ -67,6 +67,84 @@ We also ran ANOVA which reveals which predictors contribute most substantially t
 
 Overall, from fitting the mean with a polynomial model, we see that Reynolds number shows a strong negative linear effect and positive quadratic effect, indicating that mean cluster volume initially decreases sharply with increasing turbulence intensity, then levels off at higher Re values. The Stokes number exhibits a similar but weaker pattern—cluster volumes first increase then decrease with particle inertia. The Froude number's negative linear and positive quadratic effects suggest that gravitational acceleration initially reduces clustering but this effect diminishes at extreme gravity levels. The significant Re:Fr interaction indicates that gravity's effect on clustering becomes stronger in more turbulent flows, which makes physical sense as turbulence and gravity compete in determining particle settling behavior. Overall, we found that Reynolds number (turbulence intensity) is by far the dominant factor controlling mean cluster size, but its effect depends significantly on gravitational conditions, specifically gravity's impact on clustering strengthens in more turbulent flows. This interaction means that predicting particle behavior requires considering both turbulence and gravity together, rather than treating them as independent effects.
 
+```{r, echo = FALSE}
+mean_model <- lm(log(mean) ~ poly(sqrt(St), 2) + poly(Re, 2) + poly(logistic_Fr, 2) +
+    sqrt(St):Re + sqrt(St):logistic_Fr + Re:logistic_Fr, data= data)
+
+# new df that varies Re while fixing St and Fr at their means
+newdata_mean <- with(data, data.frame(
+  Re          = seq(min(Re, na.rm = TRUE), max(Re, na.rm = TRUE), length.out = 100),
+  St          = rep(mean(St, na.rm = TRUE), 100),
+  logistic_Fr = rep(mean(logistic_Fr, na.rm = TRUE), 100)
+))
+
+# 95% CI for Re values
+pred_meanRe <- predict(mean_model, newdata = newdata_mean,
+                       interval = "confidence", level = 0.95)
+
+plot_meanRe <- cbind(newdata_mean, pred_meanRe)
+
+plot_meanRe1 <- ggplot(plot_meanRe, aes(x= Re, y = fit)) +
+  geom_line(color = "blue") +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    x = "Re",
+    y = "Predicted log(mean)"
+  ) +
+  theme_minimal()
+
+# new df that varies St while fixing Re and Fr at their means
+newdata_mean <- with(data, data.frame(
+  St          = seq(min(St, na.rm = TRUE), max(St, na.rm = TRUE), length.out = 100),
+  Re          = rep(mean(Re, na.rm = TRUE), 100),
+  logistic_Fr = rep(mean(logistic_Fr, na.rm = TRUE), 100)
+))
+
+# 95% CI for St values
+pred_meanSt <- predict(mean_model, newdata = newdata_mean,
+                       interval = "confidence", level = 0.95)
+
+plot_meanSt <- cbind(newdata_mean, pred_meanSt)
+
+plot_meanSt1 <- ggplot(plot_meanSt, aes(x= St, y = fit)) +
+  geom_line(color = "blue") +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    x = "St",
+    y = "Predicted log(mean)"
+  ) +
+  theme_minimal()
+
+# new df that varies Fr while fixing Re and St at their means
+newdata_mean <- with(data, data.frame(
+  logistic_Fr = seq(min(data$logistic_Fr, na.rm = TRUE), max(data$logistic_Fr, na.rm = TRUE), length.out = 100),
+  Re  = rep(mean(Re, na.rm = TRUE), 100),
+  St = rep(mean(St, na.rm = TRUE), 100)
+))
+
+# 95% CI for Fr values
+pred_meanFr <- predict(mean_model, newdata = newdata_mean,
+                       interval = "confidence", level = 0.95)
+
+plot_meanFr <- cbind(newdata_mean, pred_meanFr)
+
+plot_meanFr1 <- ggplot(plot_meanFr, aes(x= logistic_Fr, y = fit)) +
+  geom_line(color = "blue") +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    x = "Fr",
+    y = "Predicted log(mean)"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+(plot_meanRe1 | plot_meanSt1 | plot_meanFr1)
+```
+
+The plots depict the 95% CI for the predicted log(mean) as each predictor varies, given that the other two predictors are held at their average values. For Re, we are very confident that there appears to be a strong negative relationship between Re and log(mean). For St, we are fairly confident that there is a nonlinear and positive relationship between St and log(mean). However, the wide confidence intervals at the edges depict some areas of uncertainty. For Fr, we have some confidence that the relationship between logistic(Fr) and log(mean) is U-shaped, such that at low and high values, log(mean)is higher and values in the middle are lower. There appears to be some uncertainty near the curvature, but the pattern appears to be overall evident of a non-monotonic effect of logistic_Fr on log(mean). 
+
 ## Standard Deviation
 
 ```{r}
