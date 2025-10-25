@@ -68,8 +68,31 @@ anova(lm_linear, lm_poly)
 AIC(lm_linear, lm_poly)
 BIC(lm_linear, lm_poly)
 summary(lm_poly)$adj.r.squared
-
 ```
+
+```{r}
+library(caret)
+
+set.seed(123) 
+ctrl <- trainControl(method = "cv", number = 5)
+
+model_poly_cv <- train(
+  log(mean) ~ poly(Re, 2) + logistic_Fr + St_sqrt,
+  data = data,
+  method = "lm",
+  trControl = ctrl
+)
+
+r2_cv <- model_poly_cv$results$Rsquared
+
+# Compute adjusted R^2
+n <- nrow(data)
+p <- 4 - 1  # poly(Re,2) gives 2 terms + logistic_Fr + St_sqrt = 4 predictors total
+adj_r2_cv <- 1 - (1 - r2_cv) * ((n - 1) / (n - p - 1))
+
+adj_r2_cv
+```
+
 ANOVA test suggest p <0.05, so adding curvature does improve model - this new model has much lower AIC and BIC too 
 
 Adding quadratic term to Re seemed to capture curvature of the model 
