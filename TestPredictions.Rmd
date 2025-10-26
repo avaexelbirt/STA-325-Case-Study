@@ -29,6 +29,28 @@ data_test <- data_test |>
 
 ## Mean
 
+```{r}
+# Building the mean model
+model_mean_poly <- lm(log(mean) ~ poly(sqrt(St), 2) + 
+                                poly(Re, 2) + 
+                                poly(logistic_Fr, 2) +
+                                sqrt(St):Re + 
+                                sqrt(St):logistic_Fr + 
+                                Re:logistic_Fr, 
+                      data = data)
+
+# Making predictions
+mean_predict <- predict(model_mean_poly, data_test)
+
+# Transforming back by exponentiating
+mean_pred <- exp(mean_predict)
+
+# Adding back to the final test data
+data_test$mean <- mean_pred
+
+```
+
+
 ## Standard Deviation
 
 ```{r}
@@ -40,7 +62,7 @@ sd_predict <- predict(sd_fit, data_test)
 # Un-logging the final values
 sd_pred <- exp(sd_predict)
 
-# Adding to the final value
+# Adding to the final data frame
 data_test$sd <- sd_pred
 
 ```
@@ -99,15 +121,13 @@ data_test$kurtosis <- kurt_predict
 ## Final Edits
 ```{r}
 # Just selecting the relevant columns
-data_test <- data_test |>
-  select(
-    St, Re, Fr, mean, sd, skewness, kurtosis
-  )
+data_test <- data_test[, c("St", "Fr", "Re", "mean", "sd", "skewness", "kurtosis")]
+
 ```
 
 ```{r}
 # Writing to CSV
-data_test.to_csv("Data/data-test-final.csv")
+write.csv(data_test, "Data/data-test-final.csv", row.names = FALSE)
 ```
 
 
