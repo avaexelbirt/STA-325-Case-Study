@@ -73,12 +73,28 @@ y_pred_skew <- as.numeric(y_pred_mat)
 ```
 
 ```{r}
-# Binding on the predictions column
+# Binding to the test dataset
 data_test$skewness <- y_pred_skew
 ```
 
 
 ## Kurtosis
+
+```{r}
+# Fitting the polynomial model
+poly_kurt <- lm(kurtosis ~ sqrt(St) + poly(Re, 2) + poly(logistic_Fr, 2) + 
+                   sqrt(St):poly(Re,2) + sqrt(St):poly(logistic_Fr,2) + 
+                   poly(Re,2):poly(logistic_Fr,2), data = data)
+
+# Predicting on the model
+kurt_predict <- predict(poly_kurt, data_test)
+
+```
+
+```{r}
+# Adding a column to the test dataset
+data_test$kurtosis <- kurt_predict
+```
 
 ## Final Edits
 ```{r}
