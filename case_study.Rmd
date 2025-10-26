@@ -630,6 +630,74 @@ sd_model <- lm(log(sd) ~ log_St + log_Re + logistic_Fr +
 summary(sd_model)
 ```
 
+```{r, echo = FALSE}
+newdata_sd <- data.frame(
+  log_St = seq(min(data$log_St), max(data$log_St), length.out = 100),
+  log_Re = mean(data$log_Re, na.rm = TRUE),
+  logistic_Fr = mean(data$logistic_Fr, na.rm = TRUE)
+)
+
+pred_sdSt <- predict(sd_model, newdata = newdata_sd, interval = "confidence", level = 0.95)
+plot_sdSt <- cbind(newdata_sd, pred_sdSt)
+
+plot_sdSt1 <- ggplot(plot_sdSt, aes(x= log_St, y = fit)) +
+  geom_line(color = "blue") +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    title = "95% Confidence Band for Fitted Mean (log(SD))",
+    x = "log(St)",
+    y = "Predicted log(sd)"
+  ) +
+  theme_minimal()
+
+newdata_sd <- data.frame(
+  log_Re = seq(min(data$log_Re), max(data$log_Re), length.out = 100),
+  log_St = mean(data$log_St, na.rm = TRUE),
+  logistic_Fr = mean(data$logistic_Fr, na.rm = TRUE)
+)
+
+pred_sdRe <- predict(sd_model, newdata = newdata_sd, interval = "confidence", level = 0.95)
+plot_sdRe <- cbind(newdata_sd, pred_sdRe)
+
+plot_sdRe1 <- ggplot(plot_sdRe, aes(x= log_Re, y = fit)) +
+  geom_line(color = "blue") +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    x = "log(Re)",
+    y = "Predicted log(sd)"
+  ) +
+  theme_minimal()
+
+newdata_sd <- data.frame(
+  logistic_Fr = seq(min(data$logistic_Fr), max(data$logistic_Fr), length.out = 100),
+  log_St = mean(data$log_St, na.rm = TRUE),
+  log_Re = mean(data$log_Re, na.rm = TRUE)
+)
+
+pred_sdFr <- predict(sd_model, newdata = newdata_sd, interval = "confidence", level = 0.95)
+plot_sdFr <- cbind(newdata_sd, pred_sdFr)
+
+plot_sdFr1 <- ggplot(plot_sdFr, aes(x= logistic_Fr, y = fit)) +
+  geom_line(color = "blue") +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    x = "logistic(Fr)",
+    y = "Predicted log(sd)"
+  ) +
+  theme_minimal()
+```
+
+```{r, fig.width=9, fig.height=3}
+(plot_sdSt1 | plot_sdRe1 | plot_sdFr1)
+```
+
+The plots depict the 95% CI for the predicted log(sd) as each predictor varies, given that the other two predictors are held at their average values. For Re, we are fairly confident that there appears to be a positive relationship between log(St) and log(SD), with greater variability near the extremes. For Re, we are very confident that there is a strong negative relationship between log(Re) and log(SD), such that at larger Re values, there is less variability in log(Re). For Fr, we have some confidence that the relationship between logistic(Fr) and log(SD) is negative; however, the confidence band is much wider compared to the other predictors, which means that there does appear to be more uncertainty.
+```{r}
+summary(lm.fit)
+```
+
+From our model, we can see that log_Re, logistic(Fr), and the interaction between log(R) and logistic(Fr) has significant effects on the standard deviation of the particle cluster volume distribution. For example, holding other factors constant, for a 1% increase in the Reynold's Number, there would be a 4.915% in decrease standard deviation. Also, holding other factors constant, for a 1% increase in the Stokes number, there would be a 20.704% decrease in standard deviation. In context, this means that more turbulent regimes and regimes with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduces in regimes with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logistic(Fr).
+
 
 # Modeling Skew
 
