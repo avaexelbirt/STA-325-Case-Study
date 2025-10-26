@@ -11,6 +11,7 @@ The goal of this RMD is to predict the central moments for the hold out set usin
 library(tidyverse)
 library(dplyr)
 library(glmnet)
+library(readr)
 
 ## Loading the data
 data <- read.csv("Data/data_transformed.csv")
@@ -129,7 +130,7 @@ data_test <- data_test[, c("St", "Fr", "Re", "mean", "sd", "skewness", "kurtosis
 
 ```{r}
 # Writing to CSV
-data_test.write_csv("Data/data-test-final.csv")
+write_csv(data_test, "Data/data-test-final.csv")
 ```
 
 
