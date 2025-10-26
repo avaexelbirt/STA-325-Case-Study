@@ -61,6 +61,8 @@ One concern with the data is that Re and Fr each only have 3 unique values. Henc
 
 Additionally, we analyzed the distributions of each response variable before building the model. To correct for asymmetries and heteroskedasticity amongst the residuals, we applied different transformations to some of the response variables: log transforming the Mean, log transforming the Standard Deviation, and square rooting Skew. These transformations were determined by analyzing the distributions of these response variables as well as results from the Box-Cox transformation. Since we fit initial models with linear regression as well as using linear regression for coefficient interpretation for certain models, transforming Mean and Skew improved the distribution of the noise to closer resemble a normal distribution with the residuals randomly scattered around 0, satisfying the assumption that the error is normally distributed in linear regression.
 
+\vspace{-1em}
+
 # Results
 
 \vspace{-1em}
@@ -86,6 +88,8 @@ mean_fit <- data.frame(
 
 kable(mean_fit)
 ```
+
+\vspace{-1em}
 
 -   Reynolds number shows a strong negative linear effect but a positive quadratic effect, indicating that the log(mean) cluster volume initially decreases as the intensity of turbulence of the flow initially increases, but then as the intensity of the flow increases, the mean cluster volume begins increasing.
 
@@ -174,7 +178,11 @@ plot_meanFr1 <- ggplot(plot_meanFr, aes(x= logistic_Fr, y = fit)) +
 (plot_meanRe1 | plot_meanSt1 | plot_meanFr1)
 ```
 
+\vspace{-1em}
+
 The plots depict the 95% CI for the predicted log(mean) as each predictor varies, given that the other two predictors are held at their average values. There appears to be a strong negative relationship between Re and log(mean) which is supported by the narrow confidence interval. For St, there appears to be a nonlinear and positive relationship between St and log(mean) yet the wide confidence intervals at the boundaries convey uncertainty. The relationship between logistic(Fr) and log(mean) appears to be parabolic, yet there is great uncertainty for logistic(Fr) values around 0.65-0.85. This uncertainty is attributable to the data only having 3 unique values for Fr, so we would hope to continue refining our model after receiving additional data points for Fr.
+
+\vspace{-1em}
 
 ## Standard Deviation
 
@@ -196,6 +204,8 @@ sd_fit <- data.frame(
 kable(sd_fit)
 ```
 
+\vspace{-1em}
+
 -   Similarly to the effect of the Reynolds number on mean above, increasing the flow turbulence decreases the standard deviation of the clustering distribution. Thus, increasing the flow turbulence causes the clustering distribution to become narrower as the particles are clustered closer together. Although initially surprising, it does make sense that when particles are flowing quicker they are more likely to be clustered together since the particles hit each other more often. This is a finding we'd like to further discuss with the collaborator to better understand the physics behind this negative relationship.
 
 -   We also observe a negative relationship between the gravitational acceleration of the cloud particles and the standard deviation of the clustering distribution. Based on our results above, as clouds decrease in height, the model predicts that the clustering distribution will get narrower.
@@ -203,6 +213,8 @@ kable(sd_fit)
 -   Lastly, the interaction between the Reynolds Number and Froude's Number is positive. Given that both of the individual effects are negative, this is a surprising result and one we wish to examine and discuss further. Based on our model interpretation, the effects of Fr and Re on their own negatively impact the standard deviation of the clustering, yet combining these effects yields a positive relationship indicating there might be some correlation between these two variables which causes Fr and Re to have a less negative the standard deviation when the other variable is controlled for.
 
 Overall, we find that more turbulent conditions with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduced in conditions with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logistic(Fr).
+
+\vspace{-1em}
 
 ## Skew
 
@@ -219,6 +231,8 @@ skew_sig <-
   )
 kable(skew_sig)
 ```
+
+\vspace{-1em}
 
 From the OLS model, the above coefficients were determined to be the most significant:
 
@@ -242,84 +256,7 @@ kable(skew_cat)
 
 -   Interpretation: When the Reynolds' Number increases from the baseline level to 224, the expected square root of Skew decreases holding √(St) constant. An even larger decrease is observed when the Reynolds' Number increases to 398 and √(St) is held constant. As randomness increases and the size of the particles remains the same, we expect to see a decrease the asymmetry of the distribution of the turbulence so the distribution of the clustering of the particles appears more symmetrical with an increase in randomness.
 
-Given the nature of the three levels for both Re and Fr, there is a large degree of uncertainty for these predictors when predicting the response which is especially evident in the wide nature of the 95% confidence intervals near the extremes of both of these predictors. The below plots show slices of each of the predictors for the response at the mean of the other two predictors which aren't on the x-axis. Receiving additional data in the future would address the high amount of uncertainty in the model as we continue to refine the model.
-
-```{r, fig.width=9, fig.height=3}
-# Using a model without the as.factor
-skew_m2 <- lm(sqrt(skewness) ~ St_sqrt + Re + logistic_Fr + St_sqrt:Re + 
-               St_sqrt:logistic_Fr + Re:logistic_Fr, 
-         data = data)
-skew_int2 <- summary(skew_m2)
-#skew_int2
-
-# Confidence interval dataframe
-skew_ci <- cbind(
-  data,
-  predict(skew_m2, interval = "confidence", level = 0.95)
-)
-
-# Create a new data frame varying Re while fixing others at their mean
-newdata <- data.frame(
-  Re = seq(min(data$Re), max(data$Re), length.out = 100),
-  St_sqrt = mean(sqrt(data$St), na.rm = TRUE),
-  logistic_Fr = mean(data$logistic_Fr, na.rm = TRUE)
-)
-
-# Predict fit + 95% CI for these Re values
-pred <- predict(skew_m2, newdata = newdata, interval = "confidence", level = 0.95)
-plot_df <- cbind(newdata, pred)
-
-p1 <- ggplot(plot_df, aes(x = Re, y = fit)) +
-  geom_line(color = "blue", size = 1) +
-  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
-  labs(
-    x = "Re",
-    y = "Predicted sqrt(skewness)"
-  ) +
-  theme_minimal()
-
-# Doing the same for St
-newdata <- data.frame(
-  St_sqrt = seq(min(sqrt(data$St)), max(sqrt(data$St)), length.out = 100),
-  Re = mean(data$Re, na.rm = TRUE),
-  logistic_Fr = mean(data$logistic_Fr, na.rm = TRUE)
-)
-
-pred <- predict(skew_m2, newdata = newdata, interval = "confidence", level = 0.95)
-plot_df <- cbind(newdata, pred)
-
-p2 <- ggplot(plot_df, aes(x = St_sqrt, y = fit)) +
-  geom_line(color = "blue", size = 1) +
-  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
-  labs(
-    title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
-    x = "sqrt(St)",
-    y = "Predicted sqrt(skewness)"
-  ) +
-  theme_minimal()
-
-# Same for logistic_Fr
-newdata <- data.frame(
-  logistic_Fr = seq(min(data$logistic_Fr), max(data$logistic_Fr), length.out = 100),
-  Re = mean(data$Re, na.rm = TRUE),
-  St_sqrt = mean(sqrt(data$St), na.rm = TRUE)
-)
-
-pred <- predict(skew_m2, newdata = newdata, interval = "confidence", level = 0.95)
-plot_df <- cbind(newdata, pred)
-
-p3 <- ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
-  geom_line(color = "blue", size = 1) +
-  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
-  labs(
-    x = "logistic_Fr",
-    y = "Predicted sqrt(skewness)"
-  ) +
-  theme_minimal()
-
-# Combine the plots
-(p1 | p2 | p3)
-```
+\vspace{-1em}
 
 ## Kurtosis
 
@@ -340,6 +277,8 @@ kable(kurt_cat)
 
 ```
 
+\vspace{-1em}
+
 -   The negative sign on sqrt(St) coefficient indicates that as the size of the particles in the environment increase, the kurtosis of the distribution decreases. When we simulate from larger particles, the turbulence distribution becomes less sharp as it's not as concentrated around a single value. One conclusion from this may be that increasing the size the particles increases the range of the distribution of particle turbulence resulting in less heavy tails for the distribution.
 
 -   The first degree for Re is largely positive indicating an increase in the turbulence of the flow of the particles increases how heavy the tails of the clustering distribution are.
@@ -348,12 +287,18 @@ kable(kurt_cat)
 
 We see a similar statistical significance between √(St) and the categorical values of Re for the polynomial terms.
 
+\vspace{-1em}
+
 # Conclusion
 
 \vspace{-1em}
 
-Across the models for Mean, Standard Deviation, and Kurtosis, Re has a decreasing statistically significant first degree indicating that an increasing the turbulence of the flow negatively impacts the mean, standard deviation, and kurtosis of the distribution. It is surprising to find a coefficient with the same directional effect across these central moments so this is worth further investigation.
+Some of the key findings are listed below:
 
-Additionally, logistic_Fr has a decreasing statistically significant coefficient across the models for Mean, Standard Deviation, and Kurtosis. This implies that an increase in the gravitational acceleration of the cloud particles (a decrease in how high the clouds hangs), decreases three of the central moments.
+-   Across the models for Mean, Standard Deviation, and Kurtosis, Re has a decreasing statistically significant first degree indicating that an increasing the turbulence of the flow negatively impacts the mean, standard deviation, and kurtosis of the distribution. It is surprising to find a coefficient with the same directional effect across these central moments so this is worth further investigation.
+
+-   Additionally, logistic_Fr has a decreasing statistically significant coefficient across the models for Mean, Standard Deviation, and Kurtosis. This implies that an increase in the gravitational acceleration of the cloud particles (a decrease in how high the clouds hangs), decreases three of the central moments.
+
+Moving forward, we wish to collect more data with a greater number of unique values for Fr and Re so we reduce the need to interpolate for both of these models. We would also like to further discuss some of our model assumptions with our collaborators and work to develop greater comprehension regarding how the central moment predictions can be used for understanding the entire cluster distribution.
 
 We would like to thank our collaborators in Professor Simon Mak and the Duke Civil & Environmental Engineering department. One can access the code repository for this project via this link: [Github Repository](https://github.com/avaexelbirt/STA-325-Case-Study){.uri}.
