@@ -197,7 +197,7 @@ When running 5-fold CV, the RMSE for the selected model is 2.0138, which is lowe
 ```{r, echo = FALSE}
 #COULD DELETE THIS MODEL
 lm.fit <- lm(log(sd) ~ (log_St+log_Re+logistic_Fr)^2, data)
-#plot(lm.fit) 
+# plot(lm.fit)
 # summary(lm.fit)
 ```
 
@@ -221,7 +221,7 @@ plot_sdSt1 <- ggplot(plot_sdSt, aes(x= log_St, y = fit)) +
   geom_line(color = "blue") +
   geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
   labs(
-    title = "95% Confidence Band for Fitted Mean (sqrt(SD))",
+    title = "95% Confidence Band for Fitted Mean (log(SD))",
     x = "log(St)",
     y = "Predicted log(sd)"
   ) +
