@@ -477,6 +477,19 @@ write.csv(pred1_out, "Data/pred_mean_out.csv", row.names = FALSE)
 
 ```
 
+$$
+\log(\text{mean}) = \beta_0 
++ \beta_1 \, \text{poly}_1(\sqrt{St}) 
++ \beta_2 \, \text{poly}_2(\sqrt{St}) 
++ \beta_3 \, \text{poly}_1(Re) 
++ \beta_4 \, \text{poly}_2(Re) 
++ \beta_5 \, \text{poly}_1(\text{logisticFr}) 
++ \beta_6 \, \text{poly}_2(\text{logisticFr}) 
++ \beta_7 \, (\sqrt{St} \cdot Re) 
++ \beta_8 \, (\sqrt{St} \cdot \text{logisticFr}) 
++ \beta_9 \, (Re \cdot \text{logisticFr}) 
+$$
+
 Confidence intervals 
 
 ```{r}
