@@ -67,6 +67,9 @@ data_test$sd <- sd_pred
 
 ```
 
+```{r}
+summary(sd_fit)
+```
 
 ## Skewness
 
@@ -127,7 +130,7 @@ data_test <- data_test[, c("St", "Fr", "Re", "mean", "sd", "skewness", "kurtosis
 
 ```{r}
 # Writing to CSV
-write.csv(data_test, "Data/data-test-final.csv", row.names = FALSE)
+data_test.write_csv("Data/data-test-final.csv")
 ```
 
 

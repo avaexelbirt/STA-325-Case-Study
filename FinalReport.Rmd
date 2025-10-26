@@ -180,59 +180,25 @@ The plots depict the 95% CI for the predicted log(mean) as each predictor varies
 
 \vspace{-1em}
 
-```{r}
-# EDA for standard deviation
-p1 <- ggplot(data, aes(x = sd)) +
-      geom_histogram(fill = "skyblue", color = "black") +
-      labs(title = "Histogram of Standard Deviation", x = "Standard Deviation", y = "Count") + 
-  theme_minimal()
+Following training different models such as linear, polynomial, ridge, lasso, and spline, a linear model predicting the log(standard deviation) was selected as the best model. The linear model including all interaction terms was selected based on the balance between predictive accuracy (RMSE = 2.01 and adjusted $R^2$ = 0.74). The interaction terms were included to capture the potential for one variable effecting log(sd) to depend on another variable. The linear model is interpretable and has higher bias and lower variance, meaning it is less likely to overfit the training data.
 
-bc <- boxcox(lm(sd ~ 1, data = data), plotit = FALSE)
-bc_df <- data.frame(lambda = bc$x, logLik = bc$y)
-
-p2 <- ggplot(bc_df, aes(x = lambda, y = logLik)) +
-  geom_line(color = "black") +
-  geom_vline(xintercept = bc$x[which.max(bc$y)], color = "red", linetype = "dashed") +
-  geom_vline(xintercept = 0, color = "black", linetype="dashed") + 
-  labs(title = "Box-Cox Transformation", x = "Lambda", y = "Log-Likelihood") +
-  theme_minimal()
-
-(p1 | p2)
-```
-
-The Box Cox transformation shows that the optimal lambda is around 0, so the log transformation on sd is the optimal transformation to address skewness of the response variable.
-
-We were given a training and testing dataset, so I trained different linear (with and without ridge and lasso), polynomial and spline regression models comparing the adjusted R-squared the p-values, and used 5-fold CV to compare the top model to determine which model had the best prediction accuracy while working on new, unseen data.
-
-After multiple models were compared from their adjusted R-squared and 5-fold CV, the linear model with all of the interaction terms was selected based on the balance between predictive accuracy (RMSE = 2.01, Adjusted R-squared = 0.74). The interaction terms were included to capture the potential effects of predictors coupled together. The linear model is interpretable and less risky to overfit, which is helpful in our goal to predict the standard deviations of the distributions given St, Re, and Fr.
+Although we generally found that √St was the transformation for St that had the greatest improvement on the model, for Standard Deviation we used the log(St) transformation instead due to the increase in $R^2$ and decrease in RMSE compared to √St. Below are a few of the significant findings:
 
 ```{r}
-model_summary <- data.frame(
-  Model = c(
-    "lin","lin_interactions","lin_interactions_subset","poly","spline","lasso",
-    "ridge"
+# Output table from the model
+sd_fit <- data.frame(
+  Predictor = c(
+    "log_Re","logistic_Fr","log(Re):logistic_Fr"
   ),
-  RMSE = c(2.077942, 2.013816, 2.166138, 2.072878,2.115911,2.068582, 2.080013)
+  Estimate = c(-4.80193, -20.83278, 3.57625)
 )
 
-kable(model_summary)
-
+kable(sd_fit)
 ```
 
-When running 5-fold CV, the RMSE for the selected model is 2.0138, which is lower compared to other linear, ridge, lasso, spline and polynomial models.
+-   Similarly to the effect of the Reynolds number on mean above, increasing the flow turbulence decreases the standard deviation of the clustering distribution. Thus, increasing the flow turbulence causes the clustering distribution to become narrower as the particles are clustered closer together. Although initially surprising, it does make sense that when particles are flowing quicker they are more likely to be clustered together since the particles hit each other more often. This is a finding we'd like to further discuss with the collaborator to better understand the physics behind this negative relationship.
 
-```{r, echo = FALSE}
-#COULD DELETE THIS MODEL
-lm.fit <- lm(log(sd) ~ (log_St+log_Re+logistic_Fr)^2, data)
-# plot(lm.fit)
-# summary(lm.fit)
-```
-
-```{r, echo= FALSE}
-sd_model <- lm(log(sd) ~ log_St + log_Re + logistic_Fr +
-              log_St:log_Re + log_St:logistic_Fr + log_Re:logistic_Fr,
-              data = data)
-```
+-   We also observe a negative relationship between the gravitational acceleration of the cloud particles and the standard deviation of the clustering distribution. Based on our results above, as clouds decrease in height, the model predicts that the clustering distribution will get narrower.
 
 ```{r, echo = FALSE}
 newdata_sd <- data.frame(
@@ -301,33 +267,11 @@ The plots depict the 95% CI for the predicted log(sd) as each predictor varies, 
 summary(lm.fit)
 ```
 
-From our model, we can see that log_Re, logistic_Fr, and the interaction between log_Re and logistic_Fr has significant effects on the standard deviation of the particle cluster volume distribution. For example, holding other factors constant, for a 1% increase in the Reynold's Number, there would be a 4.915% in decrease standard deviation. Also, holding other factors constant, for a 1% increase in the Stokes number, there would be a 20.704% decrease in standard deviation. In context, this means that more turbulent regimes and regimes with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduces in regimes with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logistic(Fr).
+From our model, we can see that log_Re, logistic(Fr), and the interaction between log(R) and logistic(Fr) has significant effects on the standard deviation of the particle cluster volume distribution. For example, holding other factors constant, for a 1% increase in the Reynold's Number, there would be a 4.915% in decrease standard deviation. Also, holding other factors constant, for a 1% increase in the Stokes number, there would be a 20.704% decrease in standard deviation. In context, this means that more turbulent regimes and regimes with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduces in regimes with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logistic(Fr).
 
 ## Skew
 
 \vspace{-1em}
-
-Looking at the distribution of a Skew and a Box-Cox transformation, the square root transformation is selected to address the skewness of the response variable.
-
-```{r, fig.height53, fig.width=3}
-# EDA for skew
-p1 <- ggplot(data, aes(x = skewness)) +
-      geom_histogram(fill = "skyblue", color = "black") +
-      labs(title = "Histogram of Skew", x = "Skew", y = "Count") + 
-  theme_minimal()
-
-bc <- boxcox(lm(skewness ~ 1, data = data), plotit = FALSE)
-bc_df <- data.frame(lambda = bc$x, logLik = bc$y)
-
-p2 <- ggplot(bc_df, aes(x = lambda, y = logLik)) +
-  geom_line(color = "black") +
-  geom_vline(xintercept = bc$x[which.max(bc$y)], color = "red", linetype = "dashed") +
-  geom_vline(xintercept = 0, color = "black", linetype="dashed") + 
-  labs(title = "Box-Cox Transformation", x = "Lambda", y = "Log-Likelihood") +
-  theme_minimal()
-
-(p1 | p2)
-```
 
 After evaluating linear regression, polynomial models, ridge regression, and splines, the model which best fit the √(Skew) response is a ridge model fit using 5-fold cross validation. To evaluate the significance of coefficients, the same predictors were fit with OLS to develop better intuition regarding the magnitude and significance of coefficients.
 
@@ -343,11 +287,11 @@ kable(skew_sig)
 
 From the OLS model, the above coefficients were determined to be the most significant:
 
--   Transforming logistic_Fr back to Fr yields a coefficient extremely close to 0. This indicates that changes in the gravitational acceleration of particles (height of the cloud) does not greatly change the asymmetry of the turbulence distribution.
+-   Transforming logistic(Fr) back to Fr yields a coefficient extremely close to 0. This indicates that changes in the gravitational acceleration of particles (height of the cloud) does not greatly change the asymmetry of the turbulence distribution.
 
--   Although Fr by itself has a basically negligible impact on the distribution of √(Skew), the interaction between Fr and Re is statistically significant. Lower-hanging clouds have a higher Fr value so a positive interaction between Re and logistic_Fr indicates that either as a cloud's Fr increases (the cloud get lower) or Re increases (the flow is more turbulent), √(Skew) is increasing. Given that logistic_Fr has a negative coefficient yet the interaction between Re and logistic_Fr is positive, exploring the relationship between the height of the cloud and the turbulence of the flow warrants further investigation.
+-   Although Fr by itself has a basically negligible impact on the distribution of √(Skew), the interaction between Fr and Re is statistically significant. Lower-hanging clouds have a higher Fr value so a positive interaction between Re and logistic_Fr indicates that either as a cloud's Fr increases (the cloud get lower) or Re increases (the flow is more turbulent), √(Skew) is increasing. Given that logistic(Fr)\_Fr has a negative coefficient yet the interaction between Re and logistic(Fr)\_Fr is positive, exploring the relationship between the height of the cloud and the turbulence of the flow warrants further investigation.
 
-In a separate model with the same linear combinations of predictors, logistic_Fr and Re were treated categorically. Using categorical variables greatly improved the model performance (quantified by $R^2$, AIC, BIC, and Cp). Despite a categorical model being an unrealistic fit for data with continuous values, the model still provided insights into the interactions between these variables:
+In a separate model with the same linear combinations of predictors, logistic(Fr)\_Fr and Re were treated categorically. Using categorical variables greatly improved the model performance (quantified by $R^2$, AIC, BIC, and Cp). Despite a categorical model being an unrealistic fit for data with continuous values, the model still provided insights into the interactions between these variables:
 
 ```{r, echo=FALSE, message=FALSE}
 # Table with the significant coefficients
@@ -446,9 +390,9 @@ p3 <- ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
 
 \vspace{-1em}
 
-The best model for Kurtosis is a polynomial model for the untransformed values of Kurtosis where √(St) is not used in a polynomial term while both Re and logistic_Fr are raised to the second power. There are also interactions terms included between all three variables and their polynomial terms.
+The best model for Kurtosis is a polynomial model for the untransformed values of Kurtosis where √(St) is not used in a polynomial term while both Re and logistic(Fr)\_Fr are raised to the second power. There are also interactions terms included between all three variables and their polynomial terms.
 
-This polynomial model performed well when evaluated using 5-fold CV with a fairly high $R^2$ value and fairly low RMSE, providing us with confidence that this model is not overfit to the training data. Many of the coefficients are extremely significant in this model. For the final polynomial model, logistic_Fr is again statistically significant for both degrees which was also observed for Skewness above. However, we do notice some additional statistically significant interactions which are worth mentioning:
+This polynomial model performed well when evaluated using 5-fold CV with a fairly high $R^2$ value and fairly low RMSE, providing us with confidence that this model is not overfit to the training data. Many of the coefficients are extremely significant in this model. For the final polynomial model, logistic(Fr)\_Fr is again statistically significant for both degrees which was also observed for Skewness above. However, we do notice some additional statistically significant interactions which are worth mentioning:
 
 ```{r, echo=FALSE, message=FALSE}
 # Table with the significant coefficients
@@ -472,5 +416,9 @@ We see a similar statistical significance between √(St) and the categorical va
 # Conclusion
 
 \vspace{-1em}
+
+Across the models for Mean, Standard Deviation, and Kurtosis, Re has a decreasing statistically significant first degree indicating that an increasing the turbulence of the flow negatively impacts the mean, standard deviation, and kurtosis of the distribution. It is surprising to find a coefficient with the same directional effect across these central moments so this is worth further investigation.
+
+Additionally, logistic_Fr has a decreasing statistically significant coefficient across the models for Mean, Standard Deviation, and Kurtosis. This implies that an increase in the gravitational acceleration of the cloud particles (a decrease in how high the clouds hangs), decreases three of the central moments.
 
 We would like to thank our collaborators in Professor Simon Mak and the Duke Civil & Environmental Engineering department. One can access the code repository for this project via this link: [Github Repository](https://github.com/avaexelbirt/STA-325-Case-Study){.uri}.

@@ -377,6 +377,10 @@ The three distinct distributions from the transformation could relate to the pot
 
 # Modeling Mean
 
+An ANOVA test revealed that Reynolds number has by far the largest effect (Sum of Squares = 431.68), followed by Stokes number (SS = 7.53), and then Froude number (SS = 0.19) on explaining mean cluster volume. All three interaction terms were statistically significant (p < 0.05), with the Re:logistic_Fr interaction contributing the most (SS = 0.48, p < 0.001). The significant √St:logistic_Fr interaction (p = 0.001) and marginally significant √St:Re interaction (p = 0.030) suggest that the effects of particle inertia (St) on mean cluster size depend on both gravitational and turbulence conditions. To further assess whether this complex model overfits the data, we performed 5-fold cross-validation, averaging the RMSE across folds to estimate out-of-sample prediction error. The cross-validated RMSE was 0.118, only slightly higher than the training RMSE of 0.098, and the CV R² (0.9974) remained nearly identical to the training R² (0.9978). This close agreement between training and validation performance indicates that the model generalizes well to unseen data and does not appear to overfit the data despite its polynomial and interaction terms.
+
+Overall, from fitting the mean with a polynomial model, we see that Reynolds number shows a strong negative linear effect and positive quadratic effect, indicating that mean cluster volume initially decreases sharply with increasing turbulence intensity, then levels off at higher Re values. The Stokes number exhibits a similar but weaker pattern—cluster volumes first increase then decrease with particle inertia. The Froude number's negative linear and positive quadratic effects suggest that gravitational acceleration initially reduces clustering but this effect diminishes at extreme gravity levels. The significant Re:Fr interaction indicates that gravity's effect on clustering becomes stronger in more turbulent flows, which makes physical sense as turbulence and gravity compete in determining particle settling behavior. Overall, we found that Reynolds number (turbulence intensity) is by far the dominant factor controlling mean cluster size, but its effect depends significantly on gravitational conditions, specifically gravity's impact on clustering strengthens in more turbulent flows. This interaction means that predicting particle behavior requires considering both turbulence and gravity together, rather than treating them as independent effects.
+
 To predict the mean particle cluster volume, we fit a polynomial regression model on the log-transformed response. The log transformation was necessary because without it, the residuals showed clear patterns and heteroscedasticity. After transformation, the residuals appear to be randomly scattered around zero with constant variance. The log transformation also addressed the right-skewed distribution of mean cluster volumes in the raw data.
 
 ```{r}
@@ -573,6 +577,59 @@ $$
 Fr_{logistic} = \frac{1}{1+exp(-Fr)} \\
 log(\hat{sd}) = 26.5 + 0.642 log(St) - 4.915 log(Re) -20.704 Fr_{logistic} -0.027log(St)log(Re) - 0.102log(St)Fr_{logistic}+3.557log(Re)Fr_{logistic}
 $$
+```{r}
+{r}
+# EDA for standard deviation
+p1 <- ggplot(data, aes(x = sd)) +
+      geom_histogram(fill = "skyblue", color = "black") +
+      labs(title = "Histogram of Standard Deviation", x = "Standard Deviation", y = "Count") + 
+  theme_minimal()
+
+bc <- boxcox(lm(sd ~ 1, data = data), plotit = FALSE)
+bc_df <- data.frame(lambda = bc$x, logLik = bc$y)
+
+p2 <- ggplot(bc_df, aes(x = lambda, y = logLik)) +
+  geom_line(color = "black") +
+  geom_vline(xintercept = bc$x[which.max(bc$y)], color = "red", linetype = "dashed") +
+  geom_vline(xintercept = 0, color = "black", linetype="dashed") + 
+  labs(title = "Box-Cox Transformation", x = "Lambda", y = "Log-Likelihood") +
+  theme_minimal()
+
+(p1 | p2)
+```
+
+We were given a training and testing dataset, so I trained different linear (with and without ridge and lasso), polynomial and spline regression models comparing the adjusted R-squared the p-values, and used 5-fold CV to compare the top model to determine which model had the best prediction accuracy while working on new, unseen data.
+
+After multiple models were compared from their adjusted R-squared and 5-fold CV, the linear model with all of the interaction terms was selected based on the balance between predictive accuracy (RMSE = 2.01, Adjusted R-squared = 0.74). The interaction terms were included to capture the potential effects of predictors coupled together. The linear model is interpretable and less risky to overfit, which is helpful in our goal to predict the standard deviations of the distributions given St, Re, and Fr.
+
+```{r}
+{r}
+model_summary <- data.frame(
+  Model = c(
+    "lin","lin_interactions","lin_interactions_subset","poly","spline","lasso",
+    "ridge"
+  ),
+  RMSE = c(2.077942, 2.013816, 2.166138, 2.072878,2.115911,2.068582, 2.080013)
+)
+
+kable(model_summary)
+```
+
+```{r, echo = FALSE}
+#COULD DELETE THIS MODEL
+lm.fit <- lm(log(sd) ~ (log_St+log_Re+logistic_Fr)^2, data)
+# plot(lm.fit)
+# summary(lm.fit)
+summary(lm.fit)
+```
+
+```{r, echo= FALSE}
+sd_model <- lm(log(sd) ~ log_St + log_Re + logistic_Fr +
+              log_St:log_Re + log_St:logistic_Fr + log_Re:logistic_Fr,
+              data = data)
+summary(sd_model)
+```
+
 
 # Modeling Skew
 
