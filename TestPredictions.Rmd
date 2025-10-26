@@ -4,7 +4,7 @@ authors: "Grady P., Laura C., Abby L., Ava E., & Ella T."
 output: html_document
 ---
 
-The goal of this RMD is to predict the central moments for the hold out set.
+The goal of this RMD is to predict the central moments for the hold out set using the final models.
 
 ```{r}
 ## Loading the libraries 
