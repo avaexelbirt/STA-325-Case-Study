@@ -285,12 +285,12 @@ boxcox(lm(data$kurtosis ~ 1))
 ## Indicates that kurtosis is better off not being transformed
 ```
 ```{r}
-p1 <- ggplot(data, aes(x = kurto)) +
+p1 <- ggplot(data, aes(x = kurtosis)) +
       geom_histogram(fill = "skyblue", color = "black") +
-      labs(title = "Histogram of Skew", x = "Skew", y = "Count") + 
+      labs(title = "Histogram of Kurtosis", x = "Skew", y = "Count") + 
   theme_minimal()
 
-bc <- boxcox(lm(skewness ~ 1, data = data), plotit = FALSE)
+bc <- boxcox(lm(kurtosis ~ 1, data = data), plotit = FALSE)
 bc_df <- data.frame(lambda = bc$x, logLik = bc$y)
 
 p2 <- ggplot(bc_df, aes(x = lambda, y = logLik)) +
@@ -366,7 +366,7 @@ ctrl <- trainControl(method = "cv", number = 5)
 
 # Train model with CV
 poly_kurt_cv <- train(
-  kurtosis ~ sqrt(St) + poly(Re, 2) + poly(logistic_Fr, 2) +
+  log(kurtosis) ~ sqrt(St) + poly(Re, 2) + poly(logistic_Fr, 2) +
     sqrt(St):poly(Re,2) + sqrt(St):poly(logistic_Fr,2) +
     poly(Re,2):poly(logistic_Fr,2),
   data = data,
@@ -386,8 +386,8 @@ plot(fitted(poly_kurt1), resid(poly_kurt1),
      ylab = "Residuals",
      main = "Residuals vs Fitted Values",
      pch = 19, col = "steelblue")
-abline(h = 0, lty = 2, col = "red")
-lines(lowess(fitted(poly_kurt1), resid(poly_kurt1)), col = "orange", lwd = 2)
+abline(h = 0, lty = 2, col = "black")
+lines(lowess(fitted(poly_kurt1), resid(poly_kurt1)), col = "red", lwd = 2)
 
 ```
 
