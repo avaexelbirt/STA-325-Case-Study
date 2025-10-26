@@ -267,7 +267,9 @@ boxcox(lm(data$kurtosis ~ 1))
 ```{r}
 # Building the more interpetable model
 kurt_m1 <- lm(kurtosis ~ 
-                sqrt(St) + poly(as.factor(Re),2) + poly(as.factor(logistic_Fr), 2), 
+                sqrt(St) + poly(as.factor(Re),2) + poly(as.factor(logistic_Fr), 2) + 
+                sqrt(St):poly(as.factor(Re),2) + sqrt(St):poly(as.factor(logistic_Fr), 2) +
+                poly(as.factor(Re),2):poly(as.factor(logistic_Fr), 2), 
          data = data)
 kurt_int <- summary(kurt_m1)
 kurt_int
