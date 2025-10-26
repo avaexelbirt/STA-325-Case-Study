@@ -31,6 +31,21 @@ data_test <- data_test |>
 
 ## Standard Deviation
 
+```{r}
+# Fitting the standard deviation model
+sd_fit <- lm(log(sd) ~ (log(St)+log(Re)+logistic_Fr)^2, data)
+
+sd_predict <- predict(sd_fit, data_test)
+
+# Un-logging the final values
+sd_pred <- exp(sd_predict)
+
+# Adding to the final value
+data_test$sd <- sd_pred
+
+```
+
+
 ## Skewness
 
 ```{r}
