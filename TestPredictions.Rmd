@@ -103,18 +103,21 @@ data_test$skewness <- y_pred_skew
 
 ```{r}
 # Fitting the polynomial model
-poly_kurt <- lm(kurtosis ~ sqrt(St) + poly(Re, 2) + poly(logistic_Fr, 2) + 
+poly_kurt <- lm(log(kurtosis) ~ sqrt(St) + poly(Re, 2) + poly(logistic_Fr, 2) + 
                    sqrt(St):poly(Re,2) + sqrt(St):poly(logistic_Fr,2) + 
                    poly(Re,2):poly(logistic_Fr,2), data = data)
 
 # Predicting on the model
 kurt_predict <- predict(poly_kurt, data_test)
 
+# Untransforming to get back to log
+kurt_pred <- exp(kurt_predict)
+
 ```
 
 ```{r}
 # Adding a column to the test dataset
-data_test$kurtosis <- kurt_predict
+data_test$kurtosis <- kurt_pred
 ```
 
 ## Final Edits

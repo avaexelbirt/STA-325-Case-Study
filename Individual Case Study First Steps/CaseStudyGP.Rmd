@@ -284,6 +284,24 @@ boxcox(lm(data$kurtosis ~ 1))
 
 ## Indicates that kurtosis is better off not being transformed
 ```
+```{r}
+p1 <- ggplot(data, aes(x = kurto)) +
+      geom_histogram(fill = "skyblue", color = "black") +
+      labs(title = "Histogram of Skew", x = "Skew", y = "Count") + 
+  theme_minimal()
+
+bc <- boxcox(lm(skewness ~ 1, data = data), plotit = FALSE)
+bc_df <- data.frame(lambda = bc$x, logLik = bc$y)
+
+p2 <- ggplot(bc_df, aes(x = lambda, y = logLik)) +
+  geom_line(color = "black") +
+  geom_vline(xintercept = bc$x[which.max(bc$y)], color = "red", linetype = "dashed") +
+  geom_vline(xintercept = 0, color = "black", linetype="dashed") + 
+  labs(title = "Box-Cox Transformation", x = "Lambda", y = "Log-Likelihood") +
+  theme_minimal()
+
+(p1 | p2)
+```
 
 ```{r}
 # Building the more interpetable model

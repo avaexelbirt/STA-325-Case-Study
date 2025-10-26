@@ -62,7 +62,7 @@ Observing the distributions of the predictor variables, the square root of St wa
 
 One concern with the data is that Re and Fr each only have 3 unique values. Hence, using these variables to model the distribution of the response variable requires a large amount of uncertainty and interpolation at values of these variables between the 3 distinct values in the data. To continue refining the models, additional data with different values for these models will reduce uncertainty and improve model fit.
 
-Additionally, we analyzed the distributions of each response variable before building the model. To correct for asymmetries and heteroskedasticity amongst the residuals, we applied different transformations to some of the response variables: log transforming the Mean, log transforming the Standard Deviation, and square rooting Skew. These transformations were determined by analyzing the distributions of these response variables as well as results from the Box-Cox transformation. Since we fit initial models with linear regression as well as using linear regression for coefficient interpretation for certain models, transforming Mean and Skew improved the distribution of the noise to closer resemble a normal distribution with the residuals randomly scattered around 0, satisfying the assumption that the error is normally distributed in linear regression.
+Additionally, we analyzed the distributions of each response variable before building the model. To correct for asymmetries and heteroskedasticity amongst the residuals, we applied different transformations to all of the response variables: log transforming the Mean, log transforming the Standard Deviation, square rooting Skew, and log transforming kurtosis . These transformations were determined by analyzing the distributions of these response variables as well as results from the Box-Cox transformation. Since we fit initial models with linear regression as well as using linear regression for coefficient interpretation for certain models, transforming Mean and Skew improved the distribution of the noise to closer resemble a normal distribution with the residuals randomly scattered around 0, satisfying the assumption that the error is normally distributed in linear regression.
 
 \vspace{-1em}
 
@@ -265,7 +265,7 @@ kable(skew_cat)
 
 \vspace{-1em}
 
-The best model for Kurtosis is a polynomial model for the untransformed values of Kurtosis where √(St) is not used in a polynomial term while both Re and logistic(Fr)\_Fr are raised to the second power. There are also interactions terms included between all three variables and their polynomial terms.
+The best model for Kurtosis is a polynomial model for the log transformed values of Kurtosis where √(St) is not used in a polynomial term while both Re and logistic(Fr) are raised to the second power. There are also interactions terms included between all three variables and their polynomial terms.
 
 This polynomial model performed well when evaluated using 5-fold CV with a fairly high $R^2$ value and fairly low RMSE, providing us with confidence that this model is not overfit to the training data. Many of the coefficients are extremely significant in this model. For the final polynomial model, logistic(Fr) is again statistically significant for both degrees which was also observed for Skewness above. However, we do notice some additional statistically significant interactions which are worth mentioning:
 
@@ -274,7 +274,7 @@ This polynomial model performed well when evaluated using 5-fold CV with a fairl
 kurt_cat <-
   data.frame(
     Predictor = c("sqrt(St)", "poly(Re, 2)1", "poly(Re, 2)1:poly(logistic_Fr, 2)1"),
-    Estimate = c(-16383, 204158, 888507)
+    Estimate = c(-0.402, 14.711, 48.397)
   )
 kable(kurt_cat)
 
