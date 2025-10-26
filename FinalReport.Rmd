@@ -4,6 +4,9 @@ author: ""
 output: 
   pdf_document:
     latex_engine: xelatex
+fontsize: 6pt
+geometry: margin=0.5in
+linestretch: 1
 ---
 
 ```{=tex}
