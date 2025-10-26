@@ -785,7 +785,6 @@ skew_int2
 ```
 
 ```{r}
-{r, fig.width=9, fig.height=3}
 # Using a model without the as.factor
 skew_m2 <- lm(sqrt(skewness) ~ St_sqrt + Re + logistic_Fr + St_sqrt:Re + 
                St_sqrt:logistic_Fr + Re:logistic_Fr, 
