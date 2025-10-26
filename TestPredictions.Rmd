@@ -1,0 +1,83 @@
+---
+title: "STA 325 Case Study Test Predictions"
+authors: "Grady P., Laura C., Abby L., Ava E., & Ella T."
+output: html_document
+---
+
+The goal of this RMD is to predict the central moments for the hold out set.
+
+```{r}
+## Loading the libraries 
+library(tidyverse)
+library(dplyr)
+library(glmnet)
+
+## Loading the data
+data <- read.csv("Data/data_transformed.csv")
+data_test <- read.csv("Data/data-test.csv")
+```
+
+```{r}
+# Transforming the test set
+data_test <- data_test |>
+  mutate(
+         St_sqrt = sqrt(St),
+         logistic_Fr = 1/(1+exp(-Fr)) # using logitistic transformation for inf
+         )
+```
+
+
+## Mean
+
+## Standard Deviation
+
+## Skewness
+
+```{r}
+# Building the ridge model
+set.seed(325)
+y_train <- data$skewness
+rhs_formula <- ~ St_sqrt + Re + logistic_Fr + St_sqrt:Re + 
+               St_sqrt:logistic_Fr + Re:logistic_Fr
+
+X_train <- model.matrix(rhs_formula, data = data)[, -1]
+
+# Fitting the ridge model
+ridge_fit_skew <- cv.glmnet(X_train, y_train, 
+                            alpha = 0, nfolds = 5)
+```
+
+```{r}
+# Getting the relevant columns
+X_test  <- model.matrix(rhs_formula, data = data_test)[, -1]
+
+# Predicting the skewness for the hold out set
+y_pred_mat <- predict(ridge_fit_skew, newx = X_test, s = "lambda.min")
+y_pred_skew <- as.numeric(y_pred_mat)
+
+```
+
+```{r}
+# Binding on the predictions column
+data_test$skewness <- y_pred_skew
+```
+
+
+## Kurtosis
+
+## Final Edits
+```{r}
+# Just selecting the relevant columns
+data_test <- data_test |>
+  select(
+    St, Re, Fr, mean, sd, skewness, kurtosis
+  )
+```
+
+```{r}
+# Writing to CSV
+data_test.to_csv("Data/data-test-final.csv")
+```
+
+
+
