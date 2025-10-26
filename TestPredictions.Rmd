@@ -67,10 +67,6 @@ data_test$sd <- sd_pred
 
 ```
 
-```{r}
-summary(sd_fit)
-```
-
 ## Skewness
 
 ```{r}
