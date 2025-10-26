@@ -239,11 +239,11 @@ kable(skew_sig)
 
 From the OLS model, the above coefficients were determined to be the most significant:
 
--   Transforming logistic(Fr) back to Fr yields a coefficient extremely close to 0. This indicates that changes in the gravitational acceleration of particles (height of the cloud) does not greatly change the asymmetry of the turbulence distribution.
+-   Transforming logistic(Fr) back to Fr yields a coefficient extremely close to 0. This indicates that changes in the gravitational acceleration of particles (height of the cloud) does not greatly change the asymmetry of the clustering distribution.
 
--   Although Fr by itself has a basically negligible impact on the distribution of √(Skew), the interaction between Fr and Re is statistically significant. Lower-hanging clouds have a higher Fr value so a positive interaction between Re and logistic_Fr indicates that either as a cloud's Fr increases (the cloud get lower) or Re increases (the flow is more turbulent), √(Skew) is increasing. Given that logistic(Fr)\_Fr has a negative coefficient yet the interaction between Re and logistic(Fr)\_Fr is positive, exploring the relationship between the height of the cloud and the turbulence of the flow warrants further investigation.
+-   Although Fr by itself has a basically negligible impact on the distribution of √(Skew), the interaction between Fr and Re is statistically significant. Lower-hanging clouds have a higher Fr value so a positive interaction between Re and logistic_Fr indicates that either as a cloud's Fr increases (the cloud get lower) or Re increases (the flow is more turbulent), √(Skew) is increasing. Given that logistic(Fr) has a negative coefficient yet the interaction between Re and logistic(Fr) is positive, exploring the relationship between the height of the cloud and the turbulence of the flow warrants further investigation.
 
-In a separate model with the same linear combinations of predictors, logistic(Fr)\_Fr and Re were treated categorically. Using categorical variables greatly improved the model performance (quantified by $R^2$, AIC, BIC, and Cp). Despite a categorical model being an unrealistic fit for data with continuous values, the model still provided insights into the interactions between these variables:
+In a separate model with the same linear combinations of predictors, logistic(Fr) and Re were treated categorically. Using categorical variables greatly improved the model performance (quantified by $R^2$, AIC, BIC, and Cp). Despite a categorical model being an unrealistic fit for data with continuous values, the model still provided insights into the interactions between these variables:
 
 ```{r, echo=FALSE, message=FALSE}
 # Table with the significant coefficients
@@ -267,7 +267,7 @@ kable(skew_cat)
 
 The best model for Kurtosis is a polynomial model for the untransformed values of Kurtosis where √(St) is not used in a polynomial term while both Re and logistic(Fr)\_Fr are raised to the second power. There are also interactions terms included between all three variables and their polynomial terms.
 
-This polynomial model performed well when evaluated using 5-fold CV with a fairly high $R^2$ value and fairly low RMSE, providing us with confidence that this model is not overfit to the training data. Many of the coefficients are extremely significant in this model. For the final polynomial model, logistic(Fr)\_Fr is again statistically significant for both degrees which was also observed for Skewness above. However, we do notice some additional statistically significant interactions which are worth mentioning:
+This polynomial model performed well when evaluated using 5-fold CV with a fairly high $R^2$ value and fairly low RMSE, providing us with confidence that this model is not overfit to the training data. Many of the coefficients are extremely significant in this model. For the final polynomial model, logistic(Fr) is again statistically significant for both degrees which was also observed for Skewness above. However, we do notice some additional statistically significant interactions which are worth mentioning:
 
 ```{r, echo=FALSE, message=FALSE}
 # Table with the significant coefficients
@@ -300,7 +300,7 @@ Some of the key findings are listed below:
 
 -   Across the models for Mean, Standard Deviation, and Kurtosis, Re has a decreasing statistically significant first degree indicating that an increasing the turbulence of the flow negatively impacts the mean, standard deviation, and kurtosis of the distribution. It is surprising to find a coefficient with the same directional effect across these central moments so this is worth further investigation.
 
--   Additionally, logistic_Fr has a decreasing statistically significant coefficient across the models for Mean, Standard Deviation, and Kurtosis. This implies that an increase in the gravitational acceleration of the cloud particles (a decrease in how high the clouds hangs), decreases three of the central moments.
+-   Additionally, logistic(Fr) has a decreasing statistically significant coefficient across the models for Mean, Standard Deviation, and Kurtosis. This implies that an increase in the gravitational acceleration of the cloud particles (a decrease in how high the clouds hangs), decreases three of the central moments.
 
 Moving forward, we wish to collect more data with a greater number of unique values for Fr and Re so we reduce the need to interpolate for both of these models. We would also like to further discuss some of our model assumptions with our collaborators and work to develop greater comprehension regarding how the central moment predictions can be used for understanding the entire cluster distribution.
 
