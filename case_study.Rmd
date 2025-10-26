@@ -785,6 +785,86 @@ skew_int2
 ```
 
 ```{r}
+{r, fig.width=9, fig.height=3}
+# Using a model without the as.factor
+skew_m2 <- lm(sqrt(skewness) ~ St_sqrt + Re + logistic_Fr + St_sqrt:Re + 
+               St_sqrt:logistic_Fr + Re:logistic_Fr, 
+         data = data)
+skew_int2 <- summary(skew_m2)
+#skew_int2
+
+# Confidence interval dataframe
+skew_ci <- cbind(
+  data,
+  predict(skew_m2, interval = "confidence", level = 0.95)
+)
+
+# Create a new data frame varying Re while fixing others at their mean
+newdata <- data.frame(
+  Re = seq(min(data$Re), max(data$Re), length.out = 100),
+  St_sqrt = mean(sqrt(data$St), na.rm = TRUE),
+  logistic_Fr = mean(data$logistic_Fr, na.rm = TRUE)
+)
+
+# Predict fit + 95% CI for these Re values
+pred <- predict(skew_m2, newdata = newdata, interval = "confidence", level = 0.95)
+plot_df <- cbind(newdata, pred)
+
+p1 <- ggplot(plot_df, aes(x = Re, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    x = "Re",
+    y = "Predicted sqrt(skewness)"
+  ) +
+  theme_minimal()
+
+# Doing the same for St
+newdata <- data.frame(
+  St_sqrt = seq(min(sqrt(data$St)), max(sqrt(data$St)), length.out = 100),
+  Re = mean(data$Re, na.rm = TRUE),
+  logistic_Fr = mean(data$logistic_Fr, na.rm = TRUE)
+)
+
+pred <- predict(skew_m2, newdata = newdata, interval = "confidence", level = 0.95)
+plot_df <- cbind(newdata, pred)
+
+p2 <- ggplot(plot_df, aes(x = St_sqrt, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    title = "95% Confidence Band for Fitted Mean (sqrt(skewness))",
+    x = "sqrt(St)",
+    y = "Predicted sqrt(skewness)"
+  ) +
+  theme_minimal()
+
+# Same for logistic_Fr
+newdata <- data.frame(
+  logistic_Fr = seq(min(data$logistic_Fr), max(data$logistic_Fr), length.out = 100),
+  Re = mean(data$Re, na.rm = TRUE),
+  St_sqrt = mean(sqrt(data$St), na.rm = TRUE)
+)
+
+pred <- predict(skew_m2, newdata = newdata, interval = "confidence", level = 0.95)
+plot_df <- cbind(newdata, pred)
+
+p3 <- ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
+  geom_line(color = "blue", size = 1) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, fill = "gray") +
+  labs(
+    x = "logistic_Fr",
+    y = "Predicted sqrt(skewness)"
+  ) +
+  theme_minimal()
+
+# Combine the plots
+(p1 | p2 | p3)
+```
+
+Given the nature of the three levels for both Re and Fr, there is a large degree of uncertainty for these predictors when predicting the response which is especially evident in the wide nature of the 95% confidence intervals near the extremes of both of these predictors. The below plots show slices of each of the predictors for the response at the mean of the other two predictors which aren't on the x-axis. Receiving additional data in the future would address the high amount of uncertainty in the model as we continue to refine the model.
+
+```{r}
 # Confidence interval dataframe
 skew_ci <- cbind(
   data,
