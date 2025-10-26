@@ -568,6 +568,12 @@ plot_meanFr1 <- ggplot(plot_meanFr, aes(x= logistic_Fr, y = fit)) +
 
 The plots depict the 95% CI for the predicted log(mean) as each predictor varies, given that the other two predictors are held at their average values. For Re, we are very confident that there appears to be a strong negative relationship between Re and log(mean). For St, we are fairly confident that there is a nonlinear and positive relationship between St and log(mean). However, the wide confidence intervals at the edges depict some areas of uncertainty. For Fr, we have some confidence that the relationship between logistic(Fr) and log(mean) is U-shaped, such that at low and high values, log(mean)is higher and values in the middle are lowest. There appears to be some uncertainty near the curvature, but the pattern appears to be overall evident of a non-monotonic effect of logistic_Fr on log(mean). 
 
+# Standard Deviation
+$$
+Fr_{logistic} = \frac{1}{1+exp(-Fr)} \\
+log(\hat{sd}) = 26.5 + 0.642 log(St) - 4.915 log(Re) -20.704 Fr_{logistic} -0.027log(St)log(Re) - 0.102log(St)Fr_{logistic}+3.557log(Re)Fr_{logistic}
+$$
+
 # Modeling Skew
 
 ```{r}

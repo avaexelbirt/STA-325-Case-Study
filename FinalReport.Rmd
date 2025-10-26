@@ -46,7 +46,9 @@ Observing the distributions of the predictor variables, the square root of St wa
 
 One concern with the data is that Re and Fr each only have 3 unique values. Hence, using these variables to model the distribution of the response variable requires a large amount of uncertainty and interpolation at values of these variables between the 3 distinct values in the data. To continue refining the models, additional data with different values for these models will reduce uncertainty and improve model fit.
 
-Additionally, we analyzed the distributions of each response variable before building the model. To correct for asymmetries, we applied different transformations to some of the response variables: log transformed the Mean, square rooted the Skew, and \_\_\_\_ Kurtosis. Since we used linear regression as an initial model and for easier interpretation of model coefficients after developing the models, transforming these variables improved the distribution of the noise to closer resemble a normal distribution which is an assumption upon which linear regression depends.
+Additionally, we analyzed the distributions of each response variable before building the model. To correct for asymmetries, we applied different transformations to some of the response variables: log transformed the Mean and square rooted the Skew, and. Since we used linear regression as an initial model and for easier interpretation of model coefficients after developing the models, transforming these variables improved the distribution of the noise to closer resemble a normal distribution which is an assumption upon which linear regression depends.
+
+# Results
 
 ## Mean
 
@@ -165,11 +167,6 @@ We were given a training and testing dataset, so I trained different linear (wit
 
 After multiple models were compared from their adjusted R-squared and 5-fold CV, the linear model with all of the interaction terms was selected based on the balance between predictive accuracy (RMSE = 2.01, Adjusted R-squared = 0.74). The interaction terms were included to capture the potential effects of predictors coupled together. The linear model is interpretable and less risky to overfit, which is helpful in our goal to predict the standard deviations of the distributions given St, Re, and Fr.
 
-$$
-Fr_{logistic} = \frac{1}{1+exp(-Fr)} \\
-log(\hat{sd}) = 26.5 + 0.642 log(St) - 4.915 log(Re) -20.704 Fr_{logistic} -0.027log(St)log(Re) - 0.102log(St)Fr_{logistic}+3.557log(Re)Fr_{logistic}
-$$
-
 ```{r}
 model_summary <- data.frame(
   Model = c(
@@ -261,6 +258,12 @@ plot_sdFr1 <- ggplot(plot_sdFr, aes(x= logistic_Fr, y = fit)) +
 
 The plots depict the 95% CI for the predicted log(sd) as each predictor varies, given that the other two predictors are held at their average values. For Re, we are fairly confident that there appears to be a positive relationship between log(St) and log(SD), with greater variability near the extremes. For Re, we are very confident that there is a strong negative relationship between log(Re) and log(SD), such that at larger Re values, there is less variability in log(Re). For Fr, we have some confidence that the relationship between logistic(Fr) and log(SD) is negative; however, the confidence band is much wider compared to the other predictors, which means that there does appear to be more uncertainty.
 
+```{r}
+summary(lm.fit)
+```
+
+From our model, we can see that log_Re, logistic_Fr, and the interaction between log_Re and logistic_Fr has significant effects on the standard deviation of the particle cluster volume distribution. For example, holding other factors constant, for a 1% increase in the Reynold's Number, there would be a 4.915% in decrease standard deviation. Also, holding other factors constant, for a 1% increase in the Stokes number, there would be a 20.704% decrease in standard deviation. In context, this means that more turbulent regimes and regimes with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduces in regimes with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logisitc(Fr).
+
 ## Skew
 
 Looking at the distribution of a Skew and a Box-Cox transformation, the square root transformation is selected to address the skewness of the response variable.
@@ -303,7 +306,7 @@ From the OLS model, the above coefficients were determined to be the most signif
 
 -   Although Fr by itself has a basically negligible impact on the distribution of √(Skew), the interaction between Fr and Re is statistically significant. Lower-hanging clouds have a higher Fr value so a positive interaction between Re and logistic_Fr indicates that either as a cloud's Fr increases (the cloud get lower) or Re increases (the flow is more turbulent), √(Skew) is increasing. Given that logistic_Fr has a negative coefficient yet the interaction between Re and logistic_Fr is positive, exploring the relationship between the height of the cloud and the turbulence of the flow warrants further investigation.
 
-In a separate model with the same linear combinations of predictors, logistic_Fr and Re were also treated categorically. Using categorical variables greatly improved the model performance (quantified by $R^2$, AIC, BIC, and Cp). Despite a categorical model being an unrealistic fit if new data has values which don't fall into these categories, the model still provided insights into the model fit:
+In a separate model with the same linear combinations of predictors, logistic_Fr and Re were treated categorically. Using categorical variables greatly improved the model performance (quantified by $R^2$, AIC, BIC, and Cp). Despite a categorical model being an unrealistic fit for data with continuous values, the model still provided insights into the interactions between these variables:
 
 ```{r, echo=FALSE, message=FALSE}
 # Table with the significant coefficients
@@ -315,7 +318,9 @@ skew_cat <-
 kable(skew_cat)
 ```
 
--   
+-   When treated as categorical variables, the relationships which are most significant both involve √(St) and the levels of Re.
+
+-   Interpretation: When the Reynolds' Number increases from the baseline level to 224, the expected square root of Skew decreases holding √(St) constant. An even larger decrease is observed when the Reynolds' Number increases to 398 and √(St) is held constant. As randomness increases and the size of the particles remains the same, we expect to see a decrease the Skewness of the distribution of the turbulence.
 
 Given the nature of the three levels for both Re and Fr, there is a large degree of uncertainty for these predictors when predicting the response which is especially evident in the wide nature of the 95% confidence intervals near the extremes of both of these predictors. The below plots show slices of each of the predictors for the response at the mean of the other two predictors which aren't on the x-axis. Receiving additional data in the future would address the high amount of uncertainty in the model as we continue to refine the model.
 
@@ -396,34 +401,8 @@ p3 <- ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
 (p1 | p2 | p3)
 ```
 
-# Results
+## Kurtosis
 
-## Standard Deviation
-
-CONFIDENCE INTERVAL
-
-```{r}
-summary(lm.fit)
-```
-
-From our model, we can see that log_Re, logistic_Fr, and the interaction between log_Re and logistic_Fr has significant effects on the standard deviation of the particle cluster volume distribution. For example, holding other factors constant, for a 1% increase in the Reynold's Number, there would be a 4.915% in decrease standard deviation. Also, holding other factors constant, for a 1% increase in the Stokes number, there would be a 20.704% decrease in standard deviation. In context, this means that more turbulent regimes and regimes with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduces in regimes with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logisitc(Fr).
-
-Predictions on Test Data
-
-```{r}
-test <- read.csv("Data/data-test.csv")
-
-test <- test |>
-  mutate(logistic_Fr = 1/(1+exp(-Fr)))
-
-
-sd_fit <- lm(log(sd) ~ (log(St)+log(Re)+logistic_Fr)^2, data)
-
-sd_predict <- predict(sd_fit, test)
-test <- test |>
-  mutate(sd = sd_predict)
-
-test
-```
+Similarly to Standard Deviation, Kurtosis is also not transformed in the final model.
 
 # Conclusion

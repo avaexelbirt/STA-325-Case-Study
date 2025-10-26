@@ -255,7 +255,7 @@ cat("10-fold CV MSE:", mean(fold_errors), "±", sd(fold_errors), "\n")
 
 ```
 
-### Kurtosis
+## Kurtosis
 
 ```{r}
 # Boxcox transformation for skew
@@ -267,46 +267,33 @@ boxcox(lm(data$kurtosis ~ 1))
 ```{r}
 # Building the more interpetable model
 kurt_m1 <- lm(kurtosis ~ 
-                sqrt(St) + as.factor(Re) + as.factor(logistic_Fr), 
+                sqrt(St) + poly(as.factor(Re),2) + poly(as.factor(logistic_Fr), 2), 
          data = data)
 kurt_int <- summary(kurt_m1)
 kurt_int
 ```
 
 ```{r}
-# Polynomials of degree 2 for St and Re
-# RESULTS: adjusted R^2 is similar to interaction model above but residual pattern and Q-Q is better
-# Still have some points with high leverage
-poly_kurt1 <- lm(kurtosis ~ poly(St, 2) + poly(Re, 2) + logistic_Fr, data = data)
+poly_kurt1 <- lm(kurtosis ~ sqrt(St) + poly(Re, 2) + poly(logistic_Fr, 2) + 
+                   sqrt(St):poly(Re,2) + sqrt(St):poly(logistic_Fr,2) + 
+                   poly(Re,2):poly(logistic_Fr,2), data = data)
 summary(poly_kurt1)
 par(mfrow = c(2,2))
 plot(poly_kurt1)
-
-# NEED to run this through CV
-
-
-# Polynomials of degree 3 for St, 2 for Re
-# RESULTS: adjusted R^2 is similar to interaction model above but residual pattern and Q-Q is better
-# Still have some points with high leverage
-poly_kurt2 <- lm(kurtosis ~ poly(sqrt(St), 3) + poly(Re, 2) + poly(logistic_Fr, 2), 
-                 data = data)
-kurt_m <- summary(poly_kurt2)
-par(mfrow = c(2,2))
-plot(poly_kurt2)
 ```
 
 ```{r}
 # Model diagnostics
 # Getting the model diagnostics for interpretable model
-cat("R²:", kurt_m$r.squared, "\n")
-cat("Adjusted R²:", kurt_m$adj.r.squared, "\n")
-cat("AIC:", AIC(poly_kurt2), "\n")
-cat("BIC:", BIC(poly_kurt2), "\n")
+cat("R²:", summary(poly_kurt1)$r.squared, "\n")
+cat("Adjusted R²:", summary(poly_kurt1)$adj.r.squared, "\n")
+cat("AIC:", AIC(poly_kurt1), "\n")
+cat("BIC:", BIC(poly_kurt1), "\n")
 
 # Determining the RMSE
 y <- sqrt(data$kurtosis)
-y_hat <- fitted(poly_kurt2)
-resid <- residuals(poly_kurt2)
+y_hat <- fitted(poly_kurt1)
+resid <- residuals(poly_kurt1)
 
 RMSE <- sqrt(mean(resid^2))
 MSE  <- mean(resid^2)
@@ -315,10 +302,10 @@ bias <- mean(resid)
 c(RMSE = RMSE, MSE = MSE, Bias = bias)
 
 # Finding the Cp
-n <- length(poly_kurt2$fitted.values)
-p <- length(coef(poly_kurt2))       # includes intercept
-SSE <- sum(resid(poly_kurt2)^2)
-sigma2 <- summary(poly_kurt2)$sigma^2
+n <- length(poly_kurt1$fitted.values)
+p <- length(coef(poly_kurt1))       # includes intercept
+SSE <- sum(resid(poly_kurt1)^2)
+sigma2 <- summary(poly_kurt1)$sigma^2
 
 Cp <- SSE / sigma2 - n + 2 * p
 Cp
@@ -326,9 +313,42 @@ Cp
 cat("Mallows' Cp:", Cp, "\n")
 
 # Printing the anova test
-anova(poly_kurt2)
+anova(poly_kurt1)
 ```
 
+```{r}
+# Running the polynomial model through CV
+set.seed(325)
+
+# Define 5-fold cross-validation
+ctrl <- trainControl(method = "cv", number = 5)
+
+# Train model with CV
+poly_kurt_cv <- train(
+  kurtosis ~ sqrt(St) + poly(Re, 2) + poly(logistic_Fr, 2) +
+    sqrt(St):poly(Re,2) + sqrt(St):poly(logistic_Fr,2) +
+    poly(Re,2):poly(logistic_Fr,2),
+  data = data,
+  method = "lm",
+  trControl = ctrl
+)
+
+# Results
+print(poly_kurt_cv)
+summary(poly_kurt_cv$finalModel)
+```
+
+```{r}
+# Residual plot
+plot(fitted(poly_kurt1), resid(poly_kurt1),
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted Values",
+     pch = 19, col = "steelblue")
+abline(h = 0, lty = 2, col = "red")
+lines(lowess(fitted(poly_kurt1), resid(poly_kurt1)), col = "orange", lwd = 2)
+
+```
 
 ### Model Diagnostics
 ```{r}
@@ -440,6 +460,7 @@ res <- nested_ridge(X, y, K_outer = 5, K_inner = 5)
 res
 ```
 
+## Kurtosis
 
 
 ## EDA for Summary Statistics
