@@ -1,10 +1,19 @@
 ---
-title: "STA 325 Case Study"
-author: "Abby L., Ava E., Ella T., Grady P. Laura C."
+title: ""
+author: ""
 output: 
   pdf_document:
     latex_engine: xelatex
 ---
+
+```{=tex}
+\begin{center}
+\Large STA 325 Case Study\\[0.3em]
+\normalsize Abby L., Ava E., Ella T., Grady P. Laura C.\\[0.3em]
+\today
+\end{center}
+```
+\vspace{-2em}
 
 ```{r, echo=FALSE, message=FALSE}
 # Loading packages and data
@@ -36,11 +45,15 @@ knitr::opts_chunk$set(
 
 # Introduction
 
+\vspace{-1em}
+
 Whether it’s stirring a morning cup of coffee or feeling your stomach lurch during a bumpy airplane ride, nearly everyone has experienced some form of turbulence. Beyond these everyday encounters, turbulence plays a crucial role in many complex natural and industrial processes, from air pollution and chemical reactions to heat transfer and weather systems. Despite its ubiquity, turbulence remains notoriously difficult to predict and has long been regarded as “the last great unsolved problem in classical physics.”
 
 While we may not be physicists ourselves, we have undertaken the challenge of developing a predictive model to better understand this elusive phenomenon in collaboration with our Professor, Simon Mak. Given observations for fluid turbulence (quantified by Reynolds number Re), gravitational acceleration (quantified by Froud number Fr), and the particle's characteristics (quantified by Stokes number St), we have explored models designed to predict the mean, standard deviation, skewness, and kurtosis of the spatial distribution and clustering of particles in clouds in a state of idealized turbulence. Our goal is to create a model that balances predictive accuracy with interpretability; one that not only performs well statistically but also provides clear, meaningful insights into how different conditions influence turbulent behavior.
 
 # Methodology
+
+\vspace{-1em}
 
 Observing the distributions of the predictor variables, the square root of St was used as well as the log of Re to improve the symmetry of the distribution to address the constant variance assumption. Additionally, the logit function was applied to Fr so that all values are bound between 0 and 1.
 
@@ -50,13 +63,15 @@ Additionally, we analyzed the distributions of each response variable before bui
 
 # Results
 
+\vspace{-1em}
+
 ## Mean
+
+\vspace{-1em}
 
 To predict the mean particle cluster volume, several models were assessed including simple linear regression, interaction terms, polynomial models, ridge regression, and spline. After performing 5-fold CV on each, the polynomial model on log(Mean) performed best (assessed using residual plots, $R^2$, AIC, and BIC). The log transformation was necessary because without it, the residuals showed clear patterns and heteroscedasticity.
 
-The final model includes second-degree polynomial terms for all three predictors (√St, Re, and the logistic-transformed Fr) along with three two-way interactions: √St:Re, √St:logistic_Fr, and Re:logistic_Fr. This model achieved great fit, with an adjusted R² of 0.9978, meaning it explains over 99% of the variation in log(mean) cluster volume. The model's RMSE of 0.098 on the log scale translates to predictions that are typically within about 10% of the true mean cluster volume when un-transformed, although there is still uncertainty regarding the predictions due to the presence of categorical predictors.
-
-An ANOVA test revealed that Reynolds number has by far the largest effect (Sum of Squares = 431.68), followed by Stokes number, and then Froude number on explaining mean cluster volume. Twointeraction terms were statistically significant (p \< 0.05), with the Re:logistic_Fr interaction having the largest effect. The significant √St:logistic_Fr interaction interaction suggest that the effects of particle inertia (St) on mean cluster size depends primarily on gravitational conditions. 5-fold cross-validation yielded a RMSE only slightly higher than the training RMSE with a comparable $R^2$ value. This close agreement between training and validation performance indicates that the model generalizes well to unseen data and does not appear to overfit the data despite its polynomial and interaction terms.
+The final model includes second-degree polynomial terms for all three predictors (√St, Re, and the logistic-transformed Fr) along with three two-way interactions: √St:Re, √St:logistic_Fr, and Re:logistic_Fr. This model achieved great fit, with an adjusted R² of 0.9978, meaning it explains over 99% of the variation in log(mean) cluster volume. The model's RMSE of 0.098 on the log scale translates to predictions that are typically within about 10% of the true mean cluster volume when un-transformed, although there is still uncertainty regarding the predictions due to the presence of categorical predictors. Performing 5-fold cross-validation yielded a RMSE only slightly higher than the training RMSE with a comparable $R^2$ value. This close agreement between training and validation performance indicates that the model generalizes well to unseen data and does not appear to overfit the data despite its polynomial and interaction terms.
 
 Below is the output for a few of the statistically significant coefficients in the model:
 
@@ -162,6 +177,8 @@ plot_meanFr1 <- ggplot(plot_meanFr, aes(x= logistic_Fr, y = fit)) +
 The plots depict the 95% CI for the predicted log(mean) as each predictor varies, given that the other two predictors are held at their average values. There appears to be a strong negative relationship between Re and log(mean) which is supported by the narrow confidence interval. For St, there appears to be a nonlinear and positive relationship between St and log(mean) yet the wide confidence intervals at the boundaries convey uncertainty. The relationship between logistic(Fr) and log(mean) appears to be parabolic, yet there is great uncertainty for logistic(Fr) values around 0.65-0.85. This uncertainty is attributable to the data only having 3 unique values for Fr, so we would hope to continue refining our model after receiving additional data points for Fr.
 
 ## Standard Deviation
+
+\vspace{-1em}
 
 ```{r}
 # EDA for standard deviation
@@ -287,6 +304,8 @@ summary(lm.fit)
 From our model, we can see that log_Re, logistic_Fr, and the interaction between log_Re and logistic_Fr has significant effects on the standard deviation of the particle cluster volume distribution. For example, holding other factors constant, for a 1% increase in the Reynold's Number, there would be a 4.915% in decrease standard deviation. Also, holding other factors constant, for a 1% increase in the Stokes number, there would be a 20.704% decrease in standard deviation. In context, this means that more turbulent regimes and regimes with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduces in regimes with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logistic(Fr).
 
 ## Skew
+
+\vspace{-1em}
 
 Looking at the distribution of a Skew and a Box-Cox transformation, the square root transformation is selected to address the skewness of the response variable.
 
@@ -425,6 +444,8 @@ p3 <- ggplot(plot_df, aes(x = logistic_Fr, y = fit)) +
 
 ## Kurtosis
 
+\vspace{-1em}
+
 The best model for Kurtosis is a polynomial model for the untransformed values of Kurtosis where √(St) is not used in a polynomial term while both Re and logistic_Fr are raised to the second power. There are also interactions terms included between all three variables and their polynomial terms.
 
 This polynomial model performed well when evaluated using 5-fold CV with a fairly high $R^2$ value and fairly low RMSE, providing us with confidence that this model is not overfit to the training data. Many of the coefficients are extremely significant in this model. For the final polynomial model, logistic_Fr is again statistically significant for both degrees which was also observed for Skewness above. However, we do notice some additional statistically significant interactions which are worth mentioning:
@@ -449,5 +470,7 @@ kable(kurt_cat)
 We see a similar statistical significance between √(St) and the categorical values of Re for the polynomial terms.
 
 # Conclusion
+
+\vspace{-1em}
 
 We would like to thank our collaborators in Professor Simon Mak and the Duke Civil & Environmental Engineering department. One can access the code repository for this project via this link: [Github Repository](https://github.com/avaexelbirt/STA-325-Case-Study){.uri}.
