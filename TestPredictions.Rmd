@@ -73,7 +73,7 @@ data_test$sd <- sd_pred
 ```{r}
 # Building the ridge model
 set.seed(325)
-y_train <- data$skewness
+y_train <- sqrt(data$skewness)
 rhs_formula <- ~ St_sqrt + Re + logistic_Fr + St_sqrt:Re + 
                St_sqrt:logistic_Fr + Re:logistic_Fr
 
@@ -92,11 +92,14 @@ X_test  <- model.matrix(rhs_formula, data = data_test)[, -1]
 y_pred_mat <- predict(ridge_fit_skew, newx = X_test, s = "lambda.min")
 y_pred_skew <- as.numeric(y_pred_mat)
 
+# Transforming back
+y_pred <- (y_pred_skew)^2
+
 ```
 
 ```{r}
 # Binding to the test dataset
-data_test$skewness <- y_pred_skew
+data_test$skewness <- y_pred
 ```
 
 
