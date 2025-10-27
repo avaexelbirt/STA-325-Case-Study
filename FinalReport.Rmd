@@ -209,13 +209,13 @@ kable(sd_fit)
 
 \vspace{-1em}
 
--   Similarly to the effect of the Reynolds number on mean above, increasing the flow turbulence decreases the standard deviation of the clustering distribution. Thus, increasing the flow turbulence causes the clustering distribution to become narrower as the particles are clustered closer together. Although initially surprising, it does make sense that when particles are flowing quicker they are more likely to be clustered together since the particles hit each other more often. This is a finding we'd like to further discuss with the collaborator to better understand the physics behind this negative relationship.
+-   Similarly to the effect of the Reynolds number on mean, increasing the flow turbulence decreases the standard deviation of the clustering distribution causing a narrower distribution as the particles are clustered closer together. Although initially surprising, it makes sense that particles flowing quicker are more likely to be clustered since they collide more often. This is a finding to further discuss with our collaborator to better understand the physics behind this negative relationship.
 
 -   We also observe a negative relationship between the gravitational acceleration of the cloud particles and the standard deviation of the clustering distribution. Based on our results above, as clouds decrease in height, the model predicts that the clustering distribution will get narrower.
 
--   Lastly, the interaction between the Reynolds Number and Froude's Number is positive. Given that both of the individual effects are negative, this is a surprising result and one we wish to examine and discuss further. Based on our model interpretation, the effects of Fr and Re on their own negatively impact the standard deviation of the clustering, yet combining these effects yields a positive relationship indicating there might be some correlation between these two variables which causes Fr and Re to have a less negative the standard deviation when the other variable is controlled for.
+-   Lastly, the interaction between gravitational acceleration and turbulence flow is positive. Given that both effects are negative independently, this is a finding warranting further examination. The effects of Fr and Re on their own negatively impact the standard deviation of the clustering, yet combining these effects yields a positive relationship indicating there might be correlation between these two variables which causes Fr and Re to have a less negative the standard deviation when the other variable is controlled for, although we would like to further examine this relationship
 
-Overall, we find that more turbulent conditions with more dense particles lead to narrower particle cluster distributions. However, the effect with Reynold's Number is reduced in conditions with higher gravitational acceleration, or Fr, as seen with the interaction effect between log(Re) and logistic(Fr).
+Overall, more turbulent conditions with more dense particles lead to narrower particle cluster distributions. However, the negative effect of the flow's turbulence is reduced in conditions with higher gravitational acceleration, as seen with the interaction effect between log(Re) and logistic(Fr).
 
 \vspace{-1em}
 
@@ -223,7 +223,7 @@ Overall, we find that more turbulent conditions with more dense particles lead t
 
 \vspace{-1em}
 
-After evaluating linear regression, polynomial models, ridge regression, and splines, the model which best fit the √(Skew) response is a ridge model fit using 5-fold cross validation. To evaluate the significance of coefficients, the same predictors were fit with OLS to develop better intuition regarding the magnitude and significance of coefficients.
+The model best fitting √(Skew) is a ridge model fit using 5-fold cross validation. To evaluate the significance of coefficients, the same predictors are fit with OLS to develop intuition regarding the magnitude and significance of coefficients.
 
 ```{r, echo=FALSE, message=FALSE}
 # Table with the significant coefficients
@@ -236,14 +236,11 @@ kable(skew_sig)
 ```
 
 \vspace{-1em}
+-   Transforming logistic(Fr) back to Fr yields a coefficient extremely close to 0. This indicates that changes in the gravitational acceleration of particles (height of the cloud) do not greatly change the asymmetry of the clustering distribution.
 
-From the OLS model, the above coefficients were determined to be the most significant:
+-   Although Fr by itself has a basically negligible impact on the distribution of √(Skew), the interaction between Fr and Re is statistically significant. A positive interaction between Re and Fr indicates that either as a cloud drops lower (Fr) or as the flow's turbulence increases (Re), √(Skew) is increasing. Given that logistic(Fr) has a negative coefficient yet the interaction between Re and logistic(Fr) is positive, this finding is one that should be investigated further
 
--   Transforming logistic(Fr) back to Fr yields a coefficient extremely close to 0. This indicates that changes in the gravitational acceleration of particles (height of the cloud) does not greatly change the asymmetry of the clustering distribution.
-
--   Although Fr by itself has a basically negligible impact on the distribution of √(Skew), the interaction between Fr and Re is statistically significant. Lower-hanging clouds have a higher Fr value so a positive interaction between Re and logistic_Fr indicates that either as a cloud's Fr increases (the cloud get lower) or Re increases (the flow is more turbulent), √(Skew) is increasing. Given that logistic(Fr) has a negative coefficient yet the interaction between Re and logistic(Fr) is positive, exploring the relationship between the height of the cloud and the turbulence of the flow warrants further investigation.
-
-In a separate model with the same linear combinations of predictors, logistic(Fr) and Re were treated categorically. Using categorical variables greatly improved the model performance (quantified by $R^2$, AIC, BIC, and Cp). Despite a categorical model being an unrealistic fit for data with continuous values, the model still provided insights into the interactions between these variables:
+In a more interpretable model with the same linear combinations of predictors, logistic(Fr) and Re were treated categorically. Despite a categorical model being an unrealistic fit for data with continuous values, the model had better performance and  provides insights into certain interactions:
 
 ```{r, echo=FALSE, message=FALSE}
 # Table with the significant coefficients
@@ -257,7 +254,7 @@ kable(skew_cat)
 
 -   When treated as categorical variables, the relationships which are most significant both involve √(St) and the levels of Re.
 
--   Interpretation: When the Reynolds' Number increases from the baseline level to 224, the expected square root of Skew decreases holding √(St) constant. An even larger decrease is observed when the Reynolds' Number increases to 398 and √(St) is held constant. As randomness increases and the size of the particle remains the same, we expect to see a decrease in the asymmetry of the distribution of the turbulence so the distribution of the clustering of the particles appears more symmetrical with an increase in randomness.
+-   Interpretation: When the turbulence within the flow (Re) increases from the baseline level to 224, the expected square root of Skew decreases holding √(St) constant. An even larger decrease is observed when the Re increases to 398 and √(St) is held constant. As randomness increases and the size of the particle remains the same, we expect to see a decrease in the asymmetry of the distribution of the turbulence so the distribution of the clustering of the particles appears more symmetrical.
 
 \vspace{-1em}
 
@@ -265,9 +262,7 @@ kable(skew_cat)
 
 \vspace{-1em}
 
-The best model for Kurtosis is a polynomial model for the log transformed values of Kurtosis where √(St) is not used in a polynomial term while both Re and logistic(Fr) are raised to the second power. There are also interactions terms included between all three variables and their polynomial terms.
-
-This polynomial model performed well when evaluated using 5-fold CV with a fairly high $R^2$ value and fairly low RMSE, providing us with confidence that this model is not overfit to the training data. Many of the coefficients are extremely significant in this model. For the final polynomial model, logistic(Fr) is again statistically significant for both degrees which was also observed for Skewness above. However, we do notice some additional statistically significant interactions which are worth mentioning:
+The best model for Kurtosis is a polynomial model for the log transformed values of Kurtosis where √(St) is to the first degree, Re and logistic(Fr) are squared, and two-way interactions terms are included. Many of the coefficients are extremely significant in this model. For the final polynomial model, logistic(Fr) is again statistically significant for both degrees which was also observed for Skewness above. However, we do notice some additional statistically significant interactions which are worth mentioning:
 
 ```{r, echo=FALSE, message=FALSE}
 # Table with the significant coefficients
@@ -282,13 +277,11 @@ kable(kurt_cat)
 
 \vspace{-1em}
 
--   The negative sign on sqrt(St) coefficient indicates that as the size of the particles in the environment increase, the kurtosis of the distribution decreases. Simulating from larger particles causes turbulence distribution to become less peaked as it's not as heavily concentrated around a single value. One conclusion from this may be that increasing the size the particles increases the range of the distribution of clustering turbulence resulting in less heavy tails for the distribution.
+-   The negative sign on sqrt(St) coefficient indicates that as the size of the particles in the environment increase, the kurtosis of the distribution decreases. Simulating from larger particles causes turbulence distribution to become less peaked as it's not as heavily concentrated around a single value. One possible conclusion is that increasing the size the particles increases the range of the clustering distribution leading to skinnier distribution tails.
 
 -   The first degree for Re is largely positive indicating an increase in the turbulence of the flow of the particles increases how heavy the tails of the clustering distribution are.
 
--   Lastly, there is a significant interaction between the first degrees for both Re and Fr which can be interpreted in two ways. Firstly, increasing the turbulence of the flow while holding the gravitational acceleration constant, is expected to increase the Kurtosis of the model as the clustering distribution becomes more peaked. Alternatively, increasing the gravitational acceleration while holding turbulence constant, is expected to also increase the Kurtosis of the model. Intuitively, one would imagine that first interpretation is more likely given that increasing flow turbulence seems to have a more significant impact given the bullet above, but further discussion with the collaborator and model investigation would be worthwhile to determine the true effects.
-
-We see a similar statistical significance between √(St) and the categorical values of Re for the polynomial terms.
+-   There is a significant interaction between the first degrees for both Re and Fr which can be interpreted in two ways. Firstly, increasing the turbulence of the flow while holding the gravitational acceleration constant is expected to increase the Kurtosis of the model as the clustering distribution becomes more peaked. Alternatively, increasing the gravitational acceleration while holding turbulence constant, is expected to increase the Kurtosis of the model. Intuitively, one would imagine that first interpretation is more likely given that increasing flow turbulence seems to have a more significant impact (given the bullet above), but further discussion with the collaborator is needed to determine the true interpretation.
 
 \vspace{-1em}
 
