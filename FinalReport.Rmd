@@ -191,9 +191,9 @@ The plots depict the 95% CI for the predicted log(mean) as each predictor varies
 
 \vspace{-1em}
 
-A linear model predicting the log(standard deviation) including all interaction terms was selected as the best model based on the balance between predictive accuracy (RMSE = 2.01 and adjusted $R^2$ = 0.74). The interaction terms were included to capture the potential for one variable effecting log(sd) to depend on another variable. The linear model is interpretable and has higher bias and lower variance, meaning it is less likely to overfit the training data.
+A linear model predicting the log(standard deviation) including all interaction terms was selected as the best model based on the balance between predictive accuracy (RMSE = 2.01 and adjusted $R^2$ = 0.74). The interaction terms were included to capture the potential for one variable affecting log(sd) to depend on another variable. The linear model is interpretable and has higher bias and lower variance, meaning it is less likely to overfit the training data.
 
-Although across other model √St was the transformation for St that had the largest improvement on the model,we used the log(St) in this model since the log transformation performed better. Below are a few significant findings:
+Although √St was the transformation for St that had the largest improvement on the model across other models, we used the log(St) in this model since the log transformation performed better. Below are a few significant findings:
 
 ```{r}
 # Output table from the model
