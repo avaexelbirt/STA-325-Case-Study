@@ -58,11 +58,13 @@ While we may not be physicists ourselves, we have undertaken the challenge of de
 
 \vspace{-1em}
 
-Observing the distributions of the predictor variables, the square root of St was used as well as the log of Re to improve the symmetry of the distribution to address the constant variance assumption. Additionally, the logit function was applied to Fr so that all values are bound between 0 and 1.
+Observing the distributions of the predictor variables, the square root of St was used as well as the log of Re to improve the symmetry of the distribution to address the constant variance assumption. Additionally, the logit function was applied to Fr so that all values are bound between 0 and 1 as a way of handling infinite Fr values.
 
-One concern with the data is that Re and Fr each only have 3 unique values. Hence, using these variables to model the distribution of the response variable requires a large amount of uncertainty and interpolation at values of these variables between the 3 distinct values in the data. To continue refining the models, additional data with different values for these models will reduce uncertainty and improve model fit.
+One concern with the data is that Re and Fr each only have 3 unique values. Hence, using these variables to model the distribution of the response variable requires a large amount of uncertainty and interpolation at values between the 3 values in the data. To continue refining the models, additional data with different values for these variables will reduce uncertainty and improve model fit.
 
-Additionally, we analyzed the distributions of each response variable before building the model. To correct for asymmetries and heteroskedasticity amongst the residuals, we applied different transformations to all of the response variables: log transforming the Mean, log transforming the Standard Deviation, square rooting Skew, and log transforming kurtosis . These transformations were determined by analyzing the distributions of these response variables as well as results from the Box-Cox transformation. Since we fit initial models with linear regression as well as using linear regression for coefficient interpretation for certain models, transforming Mean and Skew improved the distribution of the noise to closer resemble a normal distribution with the residuals randomly scattered around 0, satisfying the assumption that the error is normally distributed in linear regression.
+Additionally, we analyzed the distributions of each response variable before building the model. To correct for asymmetries and heteroskedasticity amongst the residuals, transformations were applied to all of the response variables: log transforming the Mean, log transforming the Standard Deviation, square rooting Skew, and log transforming Kurtosis. These transformations were chosen by analyzing the distributions of these variables as well as the optimal lambda results from the Box Cox transformation.
+
+For all central moments, we first fit several different models including simple linear regression, interaction terms, polynomial models, ridge regression, and spline models. We compared initial diagnostics such as residual plots, adjusted $R^2$ values, AIC/BIC, and Cp. Then, 5-fold cross-validation was used to ensure that our chosen model was not overfitting the data by selecting models with low RMSE across the folds.
 
 \vspace{-1em}
 
@@ -74,9 +76,7 @@ Additionally, we analyzed the distributions of each response variable before bui
 
 \vspace{-1em}
 
-To predict the mean particle cluster volume, several models were assessed including simple linear regression, interaction terms, polynomial models, ridge regression, and spline. After performing 5-fold CV on each, the polynomial model on log(Mean) performed best (assessed using residual plots, $R^2$, AIC, and BIC). The log transformation was necessary because without it, the residuals showed clear patterns and heteroscedasticity.
-
-The final model includes second-degree polynomial terms for all three predictors (√St, Re, and the logistic-transformed Fr) along with three two-way interactions: √St:Re, √St:logistic_Fr, and Re:logistic_Fr. This model achieved great fit, with an adjusted R² of 0.9978, meaning it explains over 99% of the variation in log(mean) cluster volume. The model's RMSE of 0.098 on the log scale translates to predictions that are typically within about 10% of the true mean cluster volume when un-transformed, although there is still uncertainty regarding the predictions due to the presence of categorical predictors. Performing 5-fold cross-validation yielded a RMSE only slightly higher than the training RMSE with a comparable $R^2$ value. This close agreement between training and validation performance indicates that the model generalizes well to unseen data and does not appear to overfit the data despite its polynomial and interaction terms.
+The polynomial model on log(Mean) was chosen as the best model including second-degree polynomial terms for all three predictors (√St, Re, and the logistic-transformed Fr) along with three two-way interactions: √St:Re, √St:logistic_Fr, and Re:logistic_Fr. This model achieved great fit, with an adjusted R² of 0.9978, meaning it explains over 99% of the variation in log(mean) cluster volume. The model's RMSE of 0.098 on the log scale translates to predictions that are typically within about 10% of the true mean cluster volume when un-transformed, although there is still uncertainty regarding the predictions due to the presence of categorical predictors. Performing 5-fold cross-validation yielded a RMSE only slightly higher than the training RMSE with a comparable $R^2$ value, providing evidence the model generalizes well to unseen data.
 
 Below is the output for a few of the statistically significant coefficients in the model:
 
@@ -94,15 +94,15 @@ kable(mean_fit)
 
 \vspace{-1em}
 
--   Reynolds number shows a strong negative linear effect but a positive quadratic effect, indicating that the log(mean) cluster volume initially decreases as the intensity of turbulence of the flow initially increases, but then as the intensity of the flow increases, the mean cluster volume begins increasing.
+-   Reynolds number shows a strong negative linear effect but a positive quadratic effect, indicating that the log(mean) cluster volume decreases as the intensity of turbulence of the flow initially increases, but then as the intensity of the flow increases, the mean cluster volume begins increasing.
 
--   The size of the particles (St) has a similar effect. Increasing particle size initially decreases the mean of the cluster volume, but then begins increasing the mean as the particles become much larger.
+-   The size of the particles (St) has a similar effect. Increasing particle size decreases the mean of the cluster volume initially, but then begins increasing the mean as the particles become much larger.
 
--   Lastly, the Froude number's negative linear and positive quadratic effects suggest that gravitational acceleration initially reduces clustering but this effect diminishes at extreme gravity levels.
+-   Fr's negative linear and positive quadratic effects suggest that gravitational acceleration initially reduces the mean clustering but this effect diminishes at extreme gravity levels.
 
--   The positive Re:logistic_Fr interaction indicates that gravity's effect on clustering becomes stronger in more turbulent flows, which makes physical sense as turbulence and gravity compete in determining particle settling behavior.
+-   The positive Re:logistic_Fr interaction indicates that gravity's effect on clustering becomes stronger in more turbulent flows, which makes sense as turbulence and gravity compete in determining particle settling behavior.
 
-Overall, Reynolds number (turbulence intensity) is the most dominant factor controlling mean cluster size, but its effect depends significantly on gravitational conditions, specifically gravity's impact on clustering strengthens in more turbulent flows. This interaction means that predicting particle behavior requires considering both turbulence and gravity together, rather than treating them as independent effects.
+Overall, Reynolds number (turbulence intensity) is the most dominant factor controlling mean cluster size, but its effect depends significantly on gravitational conditions, specifically gravity's impact on clustering strengthens in more turbulent flows. Thus, predicting particle behavior requires understanding the effects of turbulence and gravity together, rather than independently.
 
 ```{r, echo = FALSE}
 mean_model <- lm(log(mean) ~ poly(sqrt(St), 2) + poly(Re, 2) + poly(logistic_Fr, 2) +
@@ -183,7 +183,7 @@ plot_meanFr1 <- ggplot(plot_meanFr, aes(x= logistic_Fr, y = fit)) +
 
 \vspace{-1em}
 
-The plots depict the 95% CI for the predicted log(mean) as each predictor varies, given that the other two predictors are held at their average values. There appears to be a strong negative relationship between Re and log(mean) which is supported by the narrow confidence interval. For St, there appears to be a nonlinear and positive relationship between St and log(mean) yet the wide confidence intervals at the boundaries convey uncertainty. The relationship between logistic(Fr) and log(mean) appears to be parabolic, yet there is great uncertainty for logistic(Fr) values around 0.65-0.85. This uncertainty is attributable to the data only having 3 unique values for Fr, so we would hope to continue refining our model after receiving additional data points for Fr.
+The plots depict the 95% CI for the predicted log(mean) as each predictor varies, given that the other two predictors are held at their average values. There appears to be a strong negative relationship between Re and log(mean) which is supported by the narrow confidence interval. For St, there seems to be a nonlinear and positive relationship between St and log(mean) yet the wide confidence intervals at the boundaries convey uncertainty. Lastly, the relationship between logistic(Fr) and log(mean) looks parabolic, yet there is great uncertainty for logistic(Fr) values around 0.65-0.85. This uncertainty is attributable to the data only having 3 unique values for Fr, so we will continue refining our model after receiving additional data points for Fr.
 
 \vspace{-1em}
 
@@ -191,9 +191,9 @@ The plots depict the 95% CI for the predicted log(mean) as each predictor varies
 
 \vspace{-1em}
 
-Following training different models such as linear, polynomial, ridge, lasso, and spline, a linear model predicting the log(standard deviation) was selected as the best model. The linear model including all interaction terms was selected based on the balance between predictive accuracy (RMSE = 2.01 and adjusted $R^2$ = 0.74). The interaction terms were included to capture the potential for one variable effecting log(sd) to depend on another variable. The linear model is interpretable and has higher bias and lower variance, meaning it is less likely to overfit the training data.
+A linear model predicting the log(standard deviation) including all interaction terms was selected as the best model based on the balance between predictive accuracy (RMSE = 2.01 and adjusted $R^2$ = 0.74). The interaction terms were included to capture the potential for one variable effecting log(sd) to depend on another variable. The linear model is interpretable and has higher bias and lower variance, meaning it is less likely to overfit the training data.
 
-Although we generally found that √St was the transformation for St that had the greatest improvement on the model, for Standard Deviation we used the log(St) transformation instead due to the increase in $R^2$ and decrease in RMSE compared to √St. Below are a few of the significant findings:
+Although across other model √St was the transformation for St that had the largest improvement on the model,we used the log(St) in this model since the log transformation performed better. Below are a few significant findings:
 
 ```{r}
 # Output table from the model
@@ -296,7 +296,11 @@ We see a similar statistical significance between √(St) and the categorical va
 
 \vspace{-1em}
 
+<<<<<<< Updated upstream
 One limitation to our results is that the interpretations may be less intuitive due to the response transformations using log and sqrt. For example, the log transform must be interpreted on a multiplicative scale; however, the strength with using these transformed responses is that the distributions are more symmetrical to allow for more normally distributed residuals. Another limitation is that the confidence bands near the boundaries of St, Re, and Fr widen at the edges, indicating more uncertainty in predictions as values are being extrapolated. Fr specifically only takes on 3 values, which can result in a larger confidence interval given the small range of values for this variable. Furthermore, the confidence bands are wider for values in b/n the distinct values for Re & Fr, so more observations are needed to address this uncertainty. Furthermore, all four models rely on the assumption of linearity or smooth continuity which may not capture the nonlinear turbulent particle patterns that other models such as GAMs and tree-based methods could potentially address. 
+=======
+One limitation to our results is that the interpretations may be less intuitive due to the response transformations using log and sqrt. For example, the log transform must be interpreted on a multiplicative scale; however, the strength with using these transformed responses is that the distributions are more symmetrical for more normally distributed residuals. Another limitation is that the confidence bands near the boundaries of St, Re, and Fr widen at the edges, indicating more uncertainty in predictions as values are being extrapolated. Furthermore, the confidence bands are wider for values in b/n the distinct values for Re & Fr, so more observations are needed to address this uncertainty. Next steps include examining models that prioritize interpretability, which could entail treating Fr and Re as categorical variables, although the drawback would be the inability to interpolate between values. Additionally other nonlinear regression models such as GAMs and tree-based methods can be used to capture more complex nonlinearities and address patterns that the linear models aren't capturing.
+>>>>>>> Stashed changes
 
 \vspace{-1em}
 
